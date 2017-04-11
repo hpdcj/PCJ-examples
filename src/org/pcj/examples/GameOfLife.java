@@ -159,7 +159,6 @@ public class GameOfLife implements StartPoint {
         int n = (int) Math.sqrt(PCJ.threadCount());
         for (int row = 0; row < n * N; ++row) {
             for (int col = 0; col < n * N; ++col) {
-                PCJ.barrier();
                 if (row / N == PCJ.myId() / n && col / N == PCJ.myId() % n) {
                     System.out.print(board[row % N + 1][col % N + 1] ? 'X' : '.');
                     if (col + 1 == n * N) {
