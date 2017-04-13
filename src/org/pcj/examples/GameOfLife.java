@@ -42,15 +42,14 @@ public class GameOfLife implements StartPoint {
     enum Shared {
         boards
     }
-    private static final int N = 5;
-    private static final int STEPS = 43;
+    private final int N = 720 / PCJ.threadCount();
+    private static final int STEPS = 200;
     private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
     private int step = 0;
 
     @Override
     public void main() throws Throwable {
         init();
-        exchange();
 
         print();
         PCJ.barrier();
