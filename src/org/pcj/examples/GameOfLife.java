@@ -179,13 +179,17 @@ public class GameOfLife implements StartPoint {
         boolean[][] board = boards[step % 2];
         int n = (int) Math.sqrt(PCJ.threadCount());
         for (int row = 0; row < n * N; ++row) {
-            for (int col = 0; col < n * N; ++col) {
-                if (row / N == PCJ.myId() / n && col / N == PCJ.myId() % n) {
-                    System.out.print(board[row % N + 1][col % N + 1] ? 'X' : '.');
-                    if (col + 1 == n * N) {
+            for (int col = 0; col < n; ++col) {
+                if (row / N == PCJ.myId() / n && col == PCJ.myId() % n) {
+                    for (int i = 1; i <= N; ++i) {
+                        System.out.print(board[row % N + 1][i] ? 'X' : '.');
+                    }
+
+                    if (col + 1 == n) {
                         System.out.println();
                     }
                 }
+
                 PCJ.barrier();
             }
         }
@@ -227,7 +231,8 @@ public class GameOfLife implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(GameOfLife.class, new NodesDescription(new String[]{
+        PCJ.deploy(GameOfLife.class,
+                new NodesDescription(new String[]{
             "localhost",
             "localhost",
             "localhost",
