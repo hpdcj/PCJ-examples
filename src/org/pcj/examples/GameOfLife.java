@@ -42,16 +42,28 @@ public class GameOfLife implements StartPoint {
     enum Shared {
         boards
     }
-    private final int N = 720 / PCJ.threadCount();
-    private static final int STEPS = 200;
+    private final int N = 3600 / PCJ.threadCount();
+    private static final int STEPS = 1000;
     private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
+    /*
+     *  0 |  1 |  2 |  3
+     *  4 |  5 |  6 |  7
+     *  8 |  9 | 10 | 11
+     * 12 | 13 | 14 | 15
+     */
+    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
+    private final boolean isFirstColumn = PCJ.myId() % threadsPerRow == 0;
+    private final boolean isLastColumn = PCJ.myId() % threadsPerRow == threadsPerRow - 1;
+    private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
+    private final boolean isLastRow = PCJ.myId() >= PCJ.threadCount() - threadsPerRow;
     private int step = 0;
 
     @Override
     public void main() throws Throwable {
         init();
 
-        print();
+//        print();
+        long start = System.nanoTime();
         PCJ.barrier();
 
         while (step <= STEPS) {
@@ -66,11 +78,13 @@ public class GameOfLife implements StartPoint {
             ++step;
 //            print();
         }
-
         if (PCJ.myId() == 0) {
-            System.out.println("-----------");
+            System.out.printf("time: %.3fs%n", (System.nanoTime() - start) / 1e9);
         }
-        print();
+//        if (PCJ.myId() == 0) {
+//            System.out.println("-----------");
+//        }
+//        print();
     }
 
     private void init() {
@@ -96,19 +110,6 @@ public class GameOfLife implements StartPoint {
     }
 
     private void exchange() {
-        /*
-         *  0 |  1 |  2 |  3
-         *  4 |  5 |  6 |  7
-         *  8 |  9 | 10 | 11
-         * 12 | 13 | 14 | 15
-         */
-        int n = (int) Math.sqrt(PCJ.threadCount());
-
-        boolean isFirstColumn = PCJ.myId() % n == 0;
-        boolean isLastColumn = PCJ.myId() % n == n - 1;
-        boolean isFirstRow = PCJ.myId() < n;
-        boolean isLastRow = PCJ.myId() >= PCJ.threadCount() - n;
-
         boolean[][] board = boards[(step + 1) % 2];
         int nextStep = (step + 1) % 2;
 
@@ -125,26 +126,26 @@ public class GameOfLife implements StartPoint {
 
         if (!isFirstRow) {
             for (int col = 1; col <= N; ++col) {
-                PCJ.asyncPut(board[1][col], PCJ.myId() - n, Shared.boards, nextStep, N + 1, col);
+                PCJ.asyncPut(board[1][col], PCJ.myId() - threadsPerRow, Shared.boards, nextStep, N + 1, col);
             }
         }
         if (!isLastRow) {
             for (int col = 1; col <= N; ++col) {
-                PCJ.asyncPut(board[N][col], PCJ.myId() + n, Shared.boards, nextStep, 0, col);
+                PCJ.asyncPut(board[N][col], PCJ.myId() + threadsPerRow, Shared.boards, nextStep, 0, col);
             }
         }
 
         if (!isFirstColumn && !isFirstRow) {
-            PCJ.asyncPut(board[1][1], PCJ.myId() - n - 1, Shared.boards, nextStep, N + 1, N + 1);
+            PCJ.asyncPut(board[1][1], PCJ.myId() - threadsPerRow - 1, Shared.boards, nextStep, N + 1, N + 1);
         }
         if (!isFirstColumn && !isLastRow) {
-            PCJ.asyncPut(board[N][1], PCJ.myId() + n - 1, Shared.boards, nextStep, 0, N + 1);
+            PCJ.asyncPut(board[N][1], PCJ.myId() + threadsPerRow - 1, Shared.boards, nextStep, 0, N + 1);
         }
         if (!isLastColumn && !isFirstRow) {
-            PCJ.asyncPut(board[1][N], PCJ.myId() - n + 1, Shared.boards, nextStep, N + 1, 0);
+            PCJ.asyncPut(board[1][N], PCJ.myId() - threadsPerRow + 1, Shared.boards, nextStep, N + 1, 0);
         }
         if (!isLastColumn && !isLastRow) {
-            PCJ.asyncPut(board[N][N], PCJ.myId() + n + 1, Shared.boards, nextStep, 0, 0);
+            PCJ.asyncPut(board[N][N], PCJ.myId() + threadsPerRow + 1, Shared.boards, nextStep, 0, 0);
         }
 
         if (!isLastColumn) {
@@ -236,10 +237,11 @@ public class GameOfLife implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost",}));
+//            "localhost",
+//            "localhost",
+//            "localhost",
+//            "localhost",
+//            "localhost",
+                }));
     }
 }
