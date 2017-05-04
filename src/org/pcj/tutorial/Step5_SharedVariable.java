@@ -23,11 +23,11 @@ public class Step5_SharedVariable implements StartPoint {
     enum Shared {
         rand
     }
-    private double rand;
+    private int rand;
 
     @Override
     public void main() throws Throwable {
-        rand = new Random().nextDouble();
+        rand = new Random().nextInt(PCJ.threadCount());
         for (int i = 0; i < PCJ.threadCount(); i++) {
             if (PCJ.myId() == i) {
                 System.out.println("Hello from " + PCJ.myId());

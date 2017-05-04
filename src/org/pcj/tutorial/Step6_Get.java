@@ -23,11 +23,11 @@ public class Step6_Get implements StartPoint {
     enum Shared {
         rand
     }
-    private double rand;
+    private int rand;
 
     @Override
     public void main() throws Throwable {
-        rand = new Random().nextDouble();
+        rand = new Random().nextInt(PCJ.threadCount());
         for (int i = 0; i < PCJ.threadCount(); i++) {
             if (PCJ.myId() == i) {
                 System.out.println("Hello from " + PCJ.myId()
@@ -36,9 +36,9 @@ public class Step6_Get implements StartPoint {
             PCJ.barrier();
         }
         if (PCJ.myId() == 0) {
-            double sum = 0;
+            int sum = 0;
             for (int i = 0; i < PCJ.threadCount(); i++) {
-                sum += PCJ.<Double>get(i, Shared.rand);
+                sum += PCJ.<Integer>get(i, Shared.rand);
             }
             System.out.println("sum = " + sum);
         }

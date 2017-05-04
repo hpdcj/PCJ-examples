@@ -24,11 +24,11 @@ public class Step7_AsyncGet implements StartPoint {
     enum Shared {
         rand
     }
-    private double rand;
+    private int rand;
 
     @Override
     public void main() throws Throwable {
-        rand = new Random().nextDouble();
+        rand = new Random().nextInt(PCJ.threadCount());
         for (int i = 0; i < PCJ.threadCount(); i++) {
             if (PCJ.myId() == i) {
                 System.out.println("Hello from " + PCJ.myId()
@@ -37,13 +37,13 @@ public class Step7_AsyncGet implements StartPoint {
             PCJ.barrier();
         }
         if (PCJ.myId() == 0) {
-            PcjFuture<Double>[] futures = new PcjFuture[PCJ.threadCount()];
+            PcjFuture<Integer>[] futures = new PcjFuture[PCJ.threadCount()];
             for (int i = 0; i < PCJ.threadCount(); i++) {
                 futures[i] = PCJ.asyncGet(i, Shared.rand);
             }
             
-            double sum = 0;
-            for (PcjFuture<Double> future : futures) {
+            int sum = 0;
+            for (PcjFuture<Integer> future : futures) {
                 sum += future.get();
             }
             System.out.println("sum = " + sum);
