@@ -26,6 +26,7 @@
 package org.pcj.examples;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.KeyAdapter;
@@ -34,6 +35,8 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
@@ -47,22 +50,11 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLifeGui.Shared.class)
 public class GameOfLifeGui implements StartPoint {
 
-    private final int N = 16;
+    private int panelSize = 600;
+    private int sleepTime = 100;
+    private ControlEnum control = ControlEnum.PAUSE;
 
-    private void paintBoards() {
-        boolean[][] board = boards[(step + 1) % 2];
-
-        PCJ.asyncPut(board, 0, GuiBoard.guiBoard, PCJ.myId());
-        if (PCJ.myId() == 0) {
-            PCJ.waitFor(GuiBoard.guiBoard, PCJ.threadCount());
-            panel.repaint();
-//            try {
-//                Thread.sleep(50);
-//            } catch (InterruptedException ex) {
-//            }
-            PCJ.broadcast(control, Shared.control);
-        }
-    }
+    private final int N = 64;
 
     @Storage(GameOfLifeGui.class)
     enum GuiBoard {
@@ -80,9 +72,9 @@ public class GameOfLifeGui implements StartPoint {
     enum ControlEnum {
         PLAY,
         PAUSE,
-        STOP
+        STOP,
+        EXCHANGE
     }
-    private ControlEnum control = ControlEnum.PLAY;
     private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
     /*
      *  0 |  1 |  2 |  3
@@ -104,6 +96,10 @@ public class GameOfLifeGui implements StartPoint {
 
             JFrame frame = new JFrame();
             panel = new JPanel() {
+                @Override
+                public Dimension getPreferredSize() {
+                    return new Dimension(panelSize, panelSize);
+                }
 
                 @Override
                 public void paintComponent(Graphics g) {
@@ -114,13 +110,11 @@ public class GameOfLifeGui implements StartPoint {
                     int width = this.getWidth();
                     int height = this.getHeight();
 
-                    g2.setColor(Color.gray);
+                    g2.setColor(Color.lightGray);
                     g2.fillRect(0, 0, width, height);
 
-                    int n = (int) Math.sqrt(PCJ.threadCount());
-
-                    int cellWidth = width / (N * n);
-                    int cellHeight = height / (N * n);
+                    int cellWidth = width / (N * threadsPerRow);
+                    int cellHeight = height / (N * threadsPerRow);
 
                     if (cellWidth < cellHeight) {
                         cellHeight = cellWidth;
@@ -128,20 +122,20 @@ public class GameOfLifeGui implements StartPoint {
                         cellWidth = cellHeight;
                     }
 
-                    int dx = (width - cellWidth * N * n) / 2;
-                    int dy = (height - cellHeight * N * n) / 2;
+                    int dx = (width - cellWidth * N * threadsPerRow) / 2;
+                    int dy = (height - cellHeight * N * threadsPerRow) / 2;
 
                     g2.setColor(Color.white);
                     g2.fillRect(dx, dy, width - dx * 2, height - dy * 2);
 
                     if (control == ControlEnum.PAUSE) {
-                        g2.setColor(Color.gray);
+                        g2.setColor(Color.darkGray);
                     } else {
                         g2.setColor(Color.black);
                     }
-                    for (int row = 0; row < N * n; row++) {
-                        for (int col = 0; col < N * n; col++) {
-                            int id = row / N * n + col / N;
+                    for (int row = 0; row < N * threadsPerRow; row++) {
+                        for (int col = 0; col < N * threadsPerRow; col++) {
+                            int id = row / N * threadsPerRow + col / N;
                             int x = row % N + 1;
                             int y = col % N + 1;
                             if (guiBoard[id][x][y]) {
@@ -155,10 +149,31 @@ public class GameOfLifeGui implements StartPoint {
             frame.addKeyListener(new KeyAdapter() {
                 @Override
                 public void keyReleased(KeyEvent e) {
-                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                        frame.dispose();
-                        control = ControlEnum.STOP;
-                        PCJ.broadcast(control, Shared.control);
+                    switch (e.getKeyCode()) {
+                        case KeyEvent.VK_ESCAPE:
+                            frame.dispose();
+                            changeControl(ControlEnum.STOP);
+                            break;
+                        case KeyEvent.VK_PAGE_UP:
+                            panelSize += 100;
+                            panel.revalidate();
+                            break;
+                        case KeyEvent.VK_PAGE_DOWN:
+                            if (panelSize > 200) {
+                                panelSize -= 100;
+                            }
+                            panel.revalidate();
+                            break;
+                        case KeyEvent.VK_MINUS:
+                            sleepTime += 100;
+                            break;
+                        case KeyEvent.VK_EQUALS:
+                            if (sleepTime > 0) {
+                                sleepTime -= 50;
+                            }
+                            break;
+                        default:
+                            break;
                     }
                 }
             });
@@ -173,8 +188,7 @@ public class GameOfLifeGui implements StartPoint {
                             return;
                         }
                     } else {
-                        control = ControlEnum.PLAY;
-                        PCJ.broadcast(control, Shared.control);
+                        changeControl(ControlEnum.EXCHANGE);
                         return;
                     }
 
@@ -183,10 +197,8 @@ public class GameOfLifeGui implements StartPoint {
                     int width = panel.getWidth();
                     int height = panel.getHeight();
 
-                    int n = (int) Math.sqrt(PCJ.threadCount());
-
-                    int cellWidth = width / (N * n);
-                    int cellHeight = height / (N * n);
+                    int cellWidth = width / (N * threadsPerRow);
+                    int cellHeight = height / (N * threadsPerRow);
 
                     if (cellWidth < cellHeight) {
                         cellHeight = cellWidth;
@@ -194,33 +206,36 @@ public class GameOfLifeGui implements StartPoint {
                         cellWidth = cellHeight;
                     }
 
-                    int dx = (width - cellWidth * N * n) / 2;
-                    int dy = (height - cellHeight * N * n) / 2;
+                    int dx = (width - cellWidth * N * threadsPerRow) / 2;
+                    int dy = (height - cellHeight * N * threadsPerRow) / 2;
 
                     int row = (e.getPoint().x - dx) / cellWidth;
                     int col = (e.getPoint().y - dy) / cellHeight;
 
-                    if (row < 0 || col < 0 || row >= N * n || col >= N * n) {
+                    if (row < 0 || col < 0 || row >= N * threadsPerRow || col >= N * threadsPerRow) {
                         return;
                     }
 
-                    int id = row / N * n + col / N;
+                    int id = row / N * threadsPerRow + col / N;
                     int x = row % N + 1;
                     int y = col % N + 1;
 
                     guiBoard[id][x][y] ^= true;
-                    PCJ.put(guiBoard[id][x][y], id, Shared.boards, (step) % 2, x, y);
                     PCJ.put(guiBoard[id][x][y], id, Shared.boards, (step + 1) % 2, x, y);
                     panel.repaint();
                 }
 
             });
 
-            frame.setContentPane(panel);
+            JScrollPane scrollPane = new JScrollPane(panel,
+                    ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                    ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+            frame.setContentPane(scrollPane);
 
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-            frame.setSize(600, 600);
+            frame.setSize(650, 650);
             frame.setVisible(true);
         }
 
@@ -232,6 +247,8 @@ public class GameOfLifeGui implements StartPoint {
         while (!control.equals(ControlEnum.STOP)) {
             PCJ.waitFor(Shared.control);
             if (control.equals(ControlEnum.PLAY)) {
+                ++step;
+
                 calculate();
 
                 paintBoards();
@@ -239,37 +256,77 @@ public class GameOfLifeGui implements StartPoint {
                 exchange();
 
                 PCJ.barrier();
-
-                ++step;
+            } else if (control.equals(ControlEnum.EXCHANGE)) {
+                exchange();
+                changeControl(ControlEnum.PLAY);
             }
+        }
+    }
+
+    private void changeControl(ControlEnum control) {
+        if (PCJ.myId() == 0) {
+            PCJ.broadcast(control, Shared.control);
         }
     }
 
     private void init() {
         /*
-         * .....
-         * ..X..
-         * ...X.
-         * .XXX.
-         * .....
+         * {
+         * ".....",
+         * "..X..",
+         * "...X.",
+         * ".XXX.",
+         * "....."}
+        
+         * {
+         *        "......X.",
+         *        "XX......",
+         *        ".X...XXX",
          */
         step = -1;
         boolean[][] board = boards[0];
         if (PCJ.myId() == 0) {
-            board[2][3] = true;
-            board[3][4] = true;
-            board[4][2] = true;
-            board[4][3] = true;
-            board[4][4] = true;
+
+            String[] plansza = {
+                "......X.",
+                "....X.XX",
+                "....X.X.",
+                "....X...",
+                "..X.....",
+                "X.X.....",};
+//            String[] plansza = {
+//                "XXX..X",
+//                "X.....",
+//                "....XX",
+//                ".XX..X",
+//                "X.X..X"
+//            };
+//            String[] plansza = {
+//                ".X.....",
+//                "...X...",
+//                "XX..XXX"
+//            };
+
+            for (int y = 0; y < plansza.length; y++) {
+                for (int x = 0; x < plansza[y].length(); x++) {
+                    if (plansza[y].charAt(x) != '.') {
+                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
+                    }
+                }
+
+            }
+//            board[2][3] = true;
+//            board[3][4] = true;
+//            board[4][2] = true;
+//            board[4][3] = true;
+//            board[4][4] = true;
         }
         exchange();
-
-        step = 0;
     }
 
     private void exchange() {
-        boolean[][] board = boards[(step + 1) % 2];
         int nextStep = (step + 1) % 2;
+        boolean[][] board = boards[nextStep];
 
         if (!isFirstColumn) {
             for (int row = 1; row <= N; ++row) {
@@ -368,17 +425,35 @@ public class GameOfLifeGui implements StartPoint {
                 + (board[x + 1][y + 1] ? 1 : 0);
     }
 
+    private void paintBoards() {
+        boolean[][] board = boards[(step + 1) % 2];
+
+        PCJ.asyncPut(board, 0, GuiBoard.guiBoard, PCJ.myId());
+        if (PCJ.myId() == 0) {
+            PCJ.waitFor(GuiBoard.guiBoard, PCJ.threadCount());
+            panel.repaint();
+            try {
+                if (sleepTime > 0) {
+                    Thread.sleep(sleepTime);
+                }
+            } catch (InterruptedException ex) {
+            }
+            PCJ.broadcast(control, Shared.control);
+        }
+    }
+
     public static void main(String[] args) {
         PCJ.deploy(GameOfLifeGui.class,
                 new NodesDescription(new String[]{
             "localhost",
             "localhost",
             "localhost",
-            "localhost", //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost",
+            "localhost",
+            "localhost",
+            "localhost",
+            "localhost",
+            "localhost",
+            "localhost"
         }));
     }
 }
