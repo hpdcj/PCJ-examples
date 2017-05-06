@@ -50,11 +50,14 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLifeGui.Shared.class)
 public class GameOfLifeGui implements StartPoint {
 
-    private int panelSize = 600;
-    private int sleepTime = 100;
     private ControlEnum control = ControlEnum.PAUSE;
+    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
 
-    private final int N = 64;
+    private final int sideSize = 120 * 2;
+    private final int N = sideSize / threadsPerRow;
+
+    private int panelSize = Math.max(500, sideSize);
+    private int sleepTime = 100;
 
     @Storage(GameOfLifeGui.class)
     enum GuiBoard {
@@ -82,7 +85,6 @@ public class GameOfLifeGui implements StartPoint {
      *  8 |  9 | 10 | 11
      * 12 | 13 | 14 | 15
      */
-    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
     private final boolean isFirstColumn = PCJ.myId() % threadsPerRow == 0;
     private final boolean isLastColumn = PCJ.myId() % threadsPerRow == threadsPerRow - 1;
     private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
@@ -159,7 +161,7 @@ public class GameOfLifeGui implements StartPoint {
                             panel.revalidate();
                             break;
                         case KeyEvent.VK_PAGE_DOWN:
-                            if (panelSize > 200) {
+                            if (panelSize > sideSize + 100) {
                                 panelSize -= 100;
                             }
                             panel.revalidate();
@@ -285,7 +287,7 @@ public class GameOfLifeGui implements StartPoint {
          */
         step = -1;
         boolean[][] board = boards[0];
-        if (PCJ.myId() == 0) {
+//        if (PCJ.myId() == PCJ.threadCount()-1) {
 
             String[] plansza = {
                 "......X.",
@@ -310,7 +312,8 @@ public class GameOfLifeGui implements StartPoint {
             for (int y = 0; y < plansza.length; y++) {
                 for (int x = 0; x < plansza[y].length(); x++) {
                     if (plansza[y].charAt(x) != '.') {
-                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
+//                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
+                        board[(N - plansza[y].length())/2 + x][(N - plansza.length)/2 + y] = true;
                     }
                 }
 
@@ -320,7 +323,7 @@ public class GameOfLifeGui implements StartPoint {
 //            board[4][2] = true;
 //            board[4][3] = true;
 //            board[4][4] = true;
-        }
+//        }
         exchange();
     }
 
@@ -448,12 +451,11 @@ public class GameOfLifeGui implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost"
+            "localhost", //            "localhost",
+        //            "localhost",
+        //            "localhost",
+        //            "localhost",
+        //            "localhost"
         }));
     }
 }

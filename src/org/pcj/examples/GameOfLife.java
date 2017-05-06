@@ -42,7 +42,8 @@ public class GameOfLife implements StartPoint {
     enum Shared {
         boards
     }
-    private final int N = 3600 / PCJ.threadCount();
+    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
+    private final int N = 3600 / threadsPerRow;
     private static final int STEPS = 1000;
     private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
     /*
@@ -51,7 +52,6 @@ public class GameOfLife implements StartPoint {
      *  8 |  9 | 10 | 11
      * 12 | 13 | 14 | 15
      */
-    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
     private final boolean isFirstColumn = PCJ.myId() % threadsPerRow == 0;
     private final boolean isLastColumn = PCJ.myId() % threadsPerRow == threadsPerRow - 1;
     private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
@@ -236,12 +236,11 @@ public class GameOfLife implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost",
-//            "localhost",
-//            "localhost",
-//            "localhost",
-//            "localhost",
-//            "localhost",
-                }));
+            "localhost", //            "localhost",
+        //            "localhost",
+        //            "localhost",
+        //            "localhost",
+        //            "localhost",
+        }));
     }
 }
