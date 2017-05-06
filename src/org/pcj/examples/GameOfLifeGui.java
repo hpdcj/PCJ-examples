@@ -25,8 +25,10 @@
  */
 package org.pcj.examples;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.KeyAdapter;
@@ -34,10 +36,15 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
@@ -54,11 +61,15 @@ public class GameOfLifeGui implements StartPoint {
     private ControlEnum control = ControlEnum.PAUSE;
     private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
 
+    private long lastCells = 0;
+    private long nowCells = 0;
+    private long lastTime = System.nanoTime();
     private final int sideSize = 120 * 2;
     private final int N = sideSize / threadsPerRow;
 
     private int panelSize = Math.max(500, sideSize);
     private int sleepTime = 100;
+    private ScheduledExecutorService threadPool;
 
     @Storage(GameOfLifeGui.class)
     enum GuiBoard {
@@ -66,6 +77,9 @@ public class GameOfLifeGui implements StartPoint {
     }
     private final boolean[][][] guiBoard = PCJ.myId() == 0 ? new boolean[PCJ.threadCount()][N + 2][N + 2] : null;
     private JPanel panel;
+    private JLabel performanceLabel;
+    private JLabel panelSizeLabel;
+    private JLabel sleepTimeLabel;
 
     @Storage(GameOfLifeGui.class)
     enum Shared {
@@ -128,22 +142,21 @@ public class GameOfLifeGui implements StartPoint {
                     int dx = (width - cellWidth * N * threadsPerRow) / 2;
                     int dy = (height - cellHeight * N * threadsPerRow) / 2;
 
-                    g2.setColor(Color.white);
-                    g2.fillRect(dx, dy, width - dx * 2, height - dy * 2);
-
-                    if (control == ControlEnum.PAUSE) {
-                        g2.setColor(Color.darkGray);
-                    } else {
-                        g2.setColor(Color.black);
-                    }
                     for (int row = 0; row < N * threadsPerRow; row++) {
                         for (int col = 0; col < N * threadsPerRow; col++) {
                             int id = row / N * threadsPerRow + col / N;
                             int x = row % N + 1;
                             int y = col % N + 1;
                             if (guiBoard[id][x][y]) {
-                                g2.fillRect(dx + row * cellWidth, dy + col * cellHeight, cellWidth, cellHeight);
+                                if (control == ControlEnum.PAUSE) {
+                                    g2.setColor(Color.darkGray);
+                                } else {
+                                    g2.setColor(Color.black);
+                                }
+                            } else {
+                                g2.setColor(Color.getHSBColor((float)id/PCJ.threadCount(), 0.3f,1.0f));
                             }
+                            g2.fillRect(dx + row * cellWidth, dy + col * cellHeight, cellWidth, cellHeight);
                         }
                     }
                     g2.dispose();
@@ -170,20 +183,24 @@ public class GameOfLifeGui implements StartPoint {
                         case KeyEvent.VK_PAGE_UP:
                             panelSize += 100;
                             panel.revalidate();
+                            panelSizeLabel.setText("PanelSize = " + panelSize);
                             break;
                         case KeyEvent.VK_PAGE_DOWN:
                             if (panelSize > sideSize + 100) {
                                 panelSize -= 100;
                             }
                             panel.revalidate();
+                            panelSizeLabel.setText("PanelSize = " + panelSize);
                             break;
                         case KeyEvent.VK_MINUS:
                             sleepTime += 100;
+                            sleepTimeLabel.setText("SleepTime = " + sleepTime);
                             break;
                         case KeyEvent.VK_EQUALS:
-                            if (sleepTime > 0) {
+                            if (sleepTime >= 50) {
                                 sleepTime -= 50;
                             }
+                            sleepTimeLabel.setText("SleepTime = " + sleepTime);
                             break;
                         default:
                             break;
@@ -247,10 +264,46 @@ public class GameOfLifeGui implements StartPoint {
                     ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                     ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-            frame.setContentPane(scrollPane);
+            frame.add(scrollPane, BorderLayout.CENTER);
+            JPanel labelPanel = new JPanel();
+            labelPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 1));
+            labelPanel.add(new JLabel(String.format("Size = %dx%d", sideSize, sideSize)));
+            labelPanel.add(new JLabel("|"));
+
+            labelPanel.add(new JLabel(String.format("Threads = %d (%d nodes)", PCJ.threadCount(), PCJ.getNodeCount())));
+            labelPanel.add(new JLabel("|"));
+
+            sleepTimeLabel = new JLabel(String.format("SleepTime = %d", sleepTime));
+            labelPanel.add(sleepTimeLabel);
+            labelPanel.add(new JLabel("|"));
+
+            panelSizeLabel = new JLabel(String.format("PanelSize = %d", panelSize));
+            labelPanel.add(panelSizeLabel);
+            labelPanel.add(new JLabel("|"));
+
+            performanceLabel = new JLabel("Performance");
+            labelPanel.add(performanceLabel);
+
+            threadPool = Executors.newScheduledThreadPool(1);
+
+            threadPool.scheduleAtFixedRate(() -> {
+                long nowTime = System.nanoTime();
+                long deltaTime = nowTime - lastTime;
+                long deltaCells = nowCells - lastCells;
+                double rate = (double) deltaCells / (deltaTime / 1e9);
+                if (deltaCells > 0) {
+                    lastCells = nowCells;
+                    lastTime = nowTime;
+                    String rateString = String.format("%.0f cells/s", rate);
+                    System.out.println(rateString);
+                    SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+                }
+            }, 0, 500, TimeUnit.MILLISECONDS);
+
+            frame.add(labelPanel, BorderLayout.PAGE_START);
 
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
+            frame.pack();
             frame.setSize(650, 650);
             frame.setVisible(true);
         }
@@ -271,11 +324,16 @@ public class GameOfLifeGui implements StartPoint {
 
                 exchange();
 
+                nowCells += N * N * PCJ.threadCount();
+
                 PCJ.barrier();
             } else if (control.equals(ControlEnum.EXCHANGE)) {
                 exchange();
                 changeControl(ControlEnum.PLAY);
             }
+        }
+        if (PCJ.myId() == 0) {
+            threadPool.shutdown();
         }
     }
 
@@ -452,11 +510,12 @@ public class GameOfLifeGui implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost", //            "localhost",
-        //                    "localhost",
-        //                    "localhost",
-        //                    "localhost",
-        //                    "localhost"
+            "localhost",
+//            "localhost",
+//                            "localhost",
+//                            "localhost",
+//                            "localhost",
+//                            "localhost"
         }));
     }
 }
