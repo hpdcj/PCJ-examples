@@ -64,7 +64,7 @@ public class GameOfLifeGui implements StartPoint {
     private long lastCells = 0;
     private long nowCells = 0;
     private long lastTime = System.nanoTime();
-    private final int sideSize = 120 * 2;
+    private final int sideSize = 120 * 2*4;
     private final int N = sideSize / threadsPerRow;
 
     private int panelSize = Math.max(500, sideSize);
@@ -186,7 +186,7 @@ public class GameOfLifeGui implements StartPoint {
                             panelSizeLabel.setText("PanelSize = " + panelSize);
                             break;
                         case KeyEvent.VK_PAGE_DOWN:
-                            if (panelSize > sideSize + 100) {
+                            if (panelSize >= sideSize + 100) {
                                 panelSize -= 100;
                             }
                             panel.revalidate();
