@@ -33,6 +33,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Random;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -151,7 +152,17 @@ public class GameOfLifeGui implements StartPoint {
             frame.addKeyListener(new KeyAdapter() {
                 @Override
                 public void keyReleased(KeyEvent e) {
+                    System.out.println("KeyEvent: " + e.paramString());
                     switch (e.getKeyCode()) {
+                        case KeyEvent.VK_SPACE:
+                            if (!control.equals(ControlEnum.PAUSE)) {
+                                changeControl(ControlEnum.PAUSE);
+                                panel.repaint();
+                                break;
+                            } else {
+                                changeControl(ControlEnum.EXCHANGE);
+                                break;
+                            }
                         case KeyEvent.VK_ESCAPE:
                             frame.dispose();
                             changeControl(ControlEnum.STOP);
@@ -183,14 +194,17 @@ public class GameOfLifeGui implements StartPoint {
             panel.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
+                    System.out.println("MouseEvent: " + e.paramString());
                     if (e.getButton() == MouseEvent.BUTTON1) {
                         if (!control.equals(ControlEnum.PAUSE)) {
-                            control = ControlEnum.PAUSE;
+                            changeControl(ControlEnum.PAUSE);
                             panel.repaint();
                             return;
                         }
                     } else {
-                        changeControl(ControlEnum.EXCHANGE);
+                        if (control.equals(ControlEnum.PAUSE)) {
+                            changeControl(ControlEnum.EXCHANGE);
+                        }
                         return;
                     }
 
@@ -272,30 +286,24 @@ public class GameOfLifeGui implements StartPoint {
     }
 
     private void init() {
-        /*
-         * {
-         * ".....",
-         * "..X..",
-         * "...X.",
-         * ".XXX.",
-         * "....."}
-        
-         * {
-         *        "......X.",
-         *        "XX......",
-         *        ".X...XXX",
-         */
         step = -1;
         boolean[][] board = boards[0];
-//        if (PCJ.myId() == PCJ.threadCount()-1) {
 
-            String[] plansza = {
-                "......X.",
-                "....X.XX",
-                "....X.X.",
-                "....X...",
-                "..X.....",
-                "X.X.....",};
+        Random rand = new Random();
+        for (int row = 0; row < board.length; row++) {
+            for (int col = 0; col < board[row].length; col++) {
+                board[row][col] = (rand.nextDouble() <= 0.15);
+            }
+        }
+
+//        if (PCJ.myId() == PCJ.threadCount()-1) {
+//            String[] plansza = {
+//                "......X.",
+//                "....X.XX",
+//                "....X.X.",
+//                "....X...",
+//                "..X.....",
+//                "X.X.....",};
 //            String[] plansza = {
 //                "XXX..X",
 //                "X.....",
@@ -308,21 +316,14 @@ public class GameOfLifeGui implements StartPoint {
 //                "...X...",
 //                "XX..XXX"
 //            };
-
-            for (int y = 0; y < plansza.length; y++) {
-                for (int x = 0; x < plansza[y].length(); x++) {
-                    if (plansza[y].charAt(x) != '.') {
-//                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
-                        board[(N - plansza[y].length())/2 + x][(N - plansza.length)/2 + y] = true;
-                    }
-                }
-
-            }
-//            board[2][3] = true;
-//            board[3][4] = true;
-//            board[4][2] = true;
-//            board[4][3] = true;
-//            board[4][4] = true;
+//            for (int y = 0; y < plansza.length; y++) {
+//                for (int x = 0; x < plansza[y].length(); x++) {
+//                    if (plansza[y].charAt(x) != '.') {
+////                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
+//                        board[(N - plansza[y].length())/2 + x][(N - plansza.length)/2 + y] = true;
+//                    }
+//                }
+//            }
 //        }
         exchange();
     }
@@ -452,10 +453,10 @@ public class GameOfLifeGui implements StartPoint {
             "localhost",
             "localhost",
             "localhost", //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost"
+        //                    "localhost",
+        //                    "localhost",
+        //                    "localhost",
+        //                    "localhost"
         }));
     }
 }
