@@ -35,10 +35,14 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -64,7 +68,7 @@ public class GameOfLifeGui implements StartPoint {
     private long lastCells = 0;
     private long nowCells = 0;
     private long lastTime = System.nanoTime();
-    private final int sideSize = 120 * 2*4;
+    private final int sideSize = 120 * 2 * 2;
     private final int N = sideSize / threadsPerRow;
 
     private int panelSize = Math.max(500, sideSize);
@@ -113,6 +117,16 @@ public class GameOfLifeGui implements StartPoint {
 
             JFrame frame = new JFrame();
             panel = new JPanel() {
+                private final Color[] colors;
+
+                {
+                    List<Color> colorList = IntStream.range(0, PCJ.threadCount())
+                            .mapToObj(id -> Color.getHSBColor((float) id / PCJ.threadCount(), 0.3f, 1.0f))
+                            .collect(Collectors.toList());
+                    Collections.shuffle(colorList);
+                    colors = colorList.toArray(new Color[0]);
+                }
+
                 @Override
                 public Dimension getPreferredSize() {
                     return new Dimension(panelSize, panelSize);
@@ -154,7 +168,7 @@ public class GameOfLifeGui implements StartPoint {
                                     g2.setColor(Color.black);
                                 }
                             } else {
-                                g2.setColor(Color.getHSBColor((float)id/PCJ.threadCount(), 0.3f,1.0f));
+                                g2.setColor(colors[id]);
                             }
                             g2.fillRect(dx + row * cellWidth, dy + col * cellHeight, cellWidth, cellHeight);
                         }
@@ -510,12 +524,11 @@ public class GameOfLifeGui implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost",
-//            "localhost",
-//                            "localhost",
-//                            "localhost",
-//                            "localhost",
-//                            "localhost"
+            "localhost", //            "localhost",
+        //                            "localhost",
+        //                            "localhost",
+        //                            "localhost",
+        //                            "localhost"
         }));
     }
 }
