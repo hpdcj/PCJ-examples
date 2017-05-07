@@ -298,22 +298,21 @@ public class GameOfLifeGui implements StartPoint {
             performanceLabel = new JLabel("Performance");
             labelPanel.add(performanceLabel);
 
-            threadPool = Executors.newScheduledThreadPool(1);
-
-            threadPool.scheduleAtFixedRate(() -> {
-                long nowTime = System.nanoTime();
-                long deltaTime = nowTime - lastTime;
-                long deltaCells = nowCells - lastCells;
-                double rate = (double) deltaCells / (deltaTime / 1e9);
-                if (deltaCells > 0) {
-                    lastCells = nowCells;
-                    lastTime = nowTime;
-                    String rateString = String.format("%.0f cells/s", rate);
-                    System.out.println(rateString);
-                    SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
-                }
-            }, 0, 500, TimeUnit.MILLISECONDS);
-
+//            threadPool = Executors.newScheduledThreadPool(1);
+//
+//            threadPool.scheduleAtFixedRate(() -> {
+//                long nowTime = System.nanoTime();
+//                long deltaTime = nowTime - lastTime;
+//                long deltaCells = nowCells - lastCells;
+//                double rate = (double) deltaCells / (deltaTime / 1e9);
+//                if (deltaCells > 0) {
+//                    lastCells = nowCells;
+//                    lastTime = nowTime;
+//                    String rateString = String.format("%.0f cells/s", rate);
+//                    System.out.println(rateString);
+//                    SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+//                }
+//            }, 0, 500, TimeUnit.MILLISECONDS);
             frame.add(labelPanel, BorderLayout.PAGE_START);
 
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -338,7 +337,24 @@ public class GameOfLifeGui implements StartPoint {
 
                 exchange();
 
-                nowCells += N * N * PCJ.threadCount();
+                if (PCJ.myId() == 0) {
+                    nowCells += N * N * PCJ.threadCount();
+
+                    long nowTime = System.nanoTime();
+                    long deltaTime = nowTime - lastTime;
+
+                    if (deltaTime > 1e9) {
+                        long deltaCells = nowCells - lastCells;
+                        double rate = (double) deltaCells / (deltaTime / 1e9);
+                        if (deltaCells > 0) {
+                            lastCells = nowCells;
+                            lastTime = nowTime;
+                            String rateString = String.format("%.0f cells/s", rate);
+                            System.out.println(rateString);
+                            SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+                        }
+                    }
+                }
 
                 PCJ.barrier();
             } else if (control.equals(ControlEnum.EXCHANGE)) {
@@ -346,9 +362,9 @@ public class GameOfLifeGui implements StartPoint {
                 changeControl(ControlEnum.PLAY);
             }
         }
-        if (PCJ.myId() == 0) {
-            threadPool.shutdown();
-        }
+//        if (PCJ.myId() == 0) {
+//            threadPool.shutdown();
+//        }
     }
 
     private void changeControl(ControlEnum control) {
