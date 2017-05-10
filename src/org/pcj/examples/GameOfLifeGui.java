@@ -35,7 +35,6 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -67,7 +66,7 @@ public class GameOfLifeGui implements StartPoint {
     private long lastCells = 0;
     private long nowCells = 0;
     private long lastTime = 0;
-    private final int sideSize = 120 * 2 * 20;
+    private final int sideSize = Integer.parseInt(System.getProperty("sideSize", "600"));
     private final int N = sideSize / threadsPerRow;
 
     private int panelSize = Math.max(500, sideSize);
@@ -107,6 +106,7 @@ public class GameOfLifeGui implements StartPoint {
     private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
     private final boolean isLastRow = PCJ.myId() >= PCJ.threadCount() - threadsPerRow;
     private int step = 0;
+    private final int maxSteps = Integer.parseInt(System.getProperty("maxSteps", "-1"));
 
     @Override
     public void main() throws Throwable {
@@ -118,6 +118,7 @@ public class GameOfLifeGui implements StartPoint {
             System.out.printf("SleepTime = %d\n", sleepTime);
             System.out.printf("PanelSize = %d\n", panelSize);
             System.out.printf("DisableGUI = %s\n", disableGui);
+            System.out.printf("maxSteps = %s\n", maxSteps);
 
             if (!disableGui) {
                 JFrame frame = new JFrame();
@@ -303,21 +304,6 @@ public class GameOfLifeGui implements StartPoint {
                 performanceLabel = new JLabel("Performance");
                 labelPanel.add(performanceLabel);
 
-//            threadPool = Executors.newScheduledThreadPool(1);
-//
-//            threadPool.scheduleAtFixedRate(() -> {
-//                long nowTime = System.nanoTime();
-//                long deltaTime = nowTime - lastTime;
-//                long deltaCells = nowCells - lastCells;
-//                double rate = (double) deltaCells / (deltaTime / 1e9);
-//                if (deltaCells > 0) {
-//                    lastCells = nowCells;
-//                    lastTime = nowTime;
-//                    String rateString = String.format("%.0f cells/s", rate);
-//                    System.out.println(rateString);
-//                    SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
-//                }
-//            }, 0, 500, TimeUnit.MILLISECONDS);
                 frame.add(labelPanel, BorderLayout.PAGE_START);
 
                 frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -334,8 +320,8 @@ public class GameOfLifeGui implements StartPoint {
 
         PCJ.barrier();
 
-        lastTime = System.nanoTime();
-        while (!control.equals(ControlEnum.STOP)) {
+        long startTime = lastTime = System.nanoTime();
+        while ((maxSteps == -1 || step < maxSteps) && !control.equals(ControlEnum.STOP)) {
             if (!disableGui) {
                 PCJ.waitFor(Shared.control);
             }
@@ -356,7 +342,7 @@ public class GameOfLifeGui implements StartPoint {
                     long nowTime = System.nanoTime();
                     long deltaTime = nowTime - lastTime;
 
-                    if (deltaTime > 1e9) {
+                    if (deltaTime > 1_000_000_000) {
                         long deltaCells = nowCells - lastCells;
                         double rate = (double) deltaCells / (deltaTime / 1e9);
                         if (deltaCells > 0) {
@@ -377,9 +363,16 @@ public class GameOfLifeGui implements StartPoint {
                 changeControl(ControlEnum.PLAY);
             }
         }
-//        if (PCJ.myId() == 0) {
-//            threadPool.shutdown();
-//        }
+
+        if (PCJ.myId() == 0) {
+            long nowTime = System.nanoTime();
+            long deltaTime = nowTime - startTime;
+
+            double rate = (double) nowCells / (deltaTime / 1e9);
+            lastTime = nowTime;
+
+            System.out.printf("Processed %d cells in %.3f seconds. AVG %.0f cells/s\n", nowCells, deltaTime / 1e9, rate);
+        }
     }
 
     private void changeControl(ControlEnum control) {
@@ -393,41 +386,17 @@ public class GameOfLifeGui implements StartPoint {
         boolean[][] board = boards[0];
 
         Random rand = new Random();
+        String seed = System.getProperty("seed");
+        if (seed != null) {
+            rand.setSeed(Long.parseLong(seed));
+        }
+        
         for (int row = 0; row < board.length; row++) {
             for (int col = 0; col < board[row].length; col++) {
                 board[row][col] = (rand.nextDouble() <= 0.15);
             }
         }
 
-//        if (PCJ.myId() == PCJ.threadCount()-1) {
-//            String[] plansza = {
-//                "......X.",
-//                "....X.XX",
-//                "....X.X.",
-//                "....X...",
-//                "..X.....",
-//                "X.X.....",};
-//            String[] plansza = {
-//                "XXX..X",
-//                "X.....",
-//                "....XX",
-//                ".XX..X",
-//                "X.X..X"
-//            };
-//            String[] plansza = {
-//                ".X.....",
-//                "...X...",
-//                "XX..XXX"
-//            };
-//            for (int y = 0; y < plansza.length; y++) {
-//                for (int x = 0; x < plansza[y].length(); x++) {
-//                    if (plansza[y].charAt(x) != '.') {
-////                        board[N - plansza[y].length() + x][N - plansza.length + y] = true;
-//                        board[(N - plansza[y].length())/2 + x][(N - plansza.length)/2 + y] = true;
-//                    }
-//                }
-//            }
-//        }
         exchange();
     }
 
@@ -547,17 +516,20 @@ public class GameOfLifeGui implements StartPoint {
         }
     }
 
-    public static void main(String[] args) {
-        PCJ.deploy(GameOfLifeGui.class,
-                new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost", //            "localhost",
-        //                            "localhost",
-        //                            "localhost",
-        //                            "localhost",
-        //                            "localhost"
-        }));
+    public static void main(String[] args) throws Throwable {
+        PCJ.start(GameOfLifeGui.class,
+                //                new NodesDescription("nodes.txt"));
+                new NodesDescription(
+                        new String[]{
+                            "localhost",
+                            "localhost",
+                            "localhost",
+                            "localhost", //                    "localhost",
+                        //                    "localhost",
+                        //                    "localhost",
+                        //                    "localhost",
+                        //                    "localhost"
+                        }
+                ));
     }
 }
