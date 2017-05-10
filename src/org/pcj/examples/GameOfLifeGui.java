@@ -67,13 +67,13 @@ public class GameOfLifeGui implements StartPoint {
 
     private long lastCells = 0;
     private long nowCells = 0;
-    private long lastTime = System.nanoTime();
-    private final int sideSize = 120 * 2 * 2;
+    private long lastTime = 0;
+    private final int sideSize = 120 * 2 * 20;
     private final int N = sideSize / threadsPerRow;
 
+    private final boolean enabledGUI = false;
     private int panelSize = Math.max(500, sideSize);
-    private int sleepTime = 100;
-    private ScheduledExecutorService threadPool;
+    private int sleepTime = 0;
 
     @Storage(GameOfLifeGui.class)
     enum GuiBoard {
@@ -115,188 +115,195 @@ public class GameOfLifeGui implements StartPoint {
         if (PCJ.myId() == 0) {
             PCJ.registerStorage(GuiBoard.class, this);
 
-            JFrame frame = new JFrame();
-            panel = new JPanel() {
-                private final Color[] colors;
+            System.out.printf("Size = %dx%d\n", sideSize, sideSize);
+            System.out.printf("Threads = %d (%d nodes)\n", PCJ.threadCount(), PCJ.getNodeCount());
+            System.out.printf("SleepTime = %d\n", sleepTime);
+            System.out.printf("PanelSize = %d\n", panelSize);
+            System.out.printf("EnabledGUI = %s\n", enabledGUI);
 
-                {
-                    List<Color> colorList = IntStream.range(0, PCJ.threadCount())
-                            .mapToObj(id -> Color.getHSBColor((float) id / PCJ.threadCount(), 0.3f, 1.0f))
-                            .collect(Collectors.toList());
-                    Collections.shuffle(colorList);
-                    colors = colorList.toArray(new Color[0]);
-                }
+            if (enabledGUI) {
+                JFrame frame = new JFrame();
+                panel = new JPanel() {
+                    private final Color[] colors;
 
-                @Override
-                public Dimension getPreferredSize() {
-                    return new Dimension(panelSize, panelSize);
-                }
-
-                @Override
-                public void paintComponent(Graphics g) {
-                    super.paintComponent(g);
-
-                    Graphics2D g2 = (Graphics2D) g.create();
-
-                    int width = this.getWidth();
-                    int height = this.getHeight();
-
-                    g2.setColor(Color.lightGray);
-                    g2.fillRect(0, 0, width, height);
-
-                    int cellWidth = width / (N * threadsPerRow);
-                    int cellHeight = height / (N * threadsPerRow);
-
-                    if (cellWidth < cellHeight) {
-                        cellHeight = cellWidth;
-                    } else {
-                        cellWidth = cellHeight;
+                    {
+                        List<Color> colorList = IntStream.range(0, PCJ.threadCount())
+                                .mapToObj(id -> Color.getHSBColor((float) id / PCJ.threadCount(), 0.3f, 1.0f))
+                                .collect(Collectors.toList());
+                        Collections.shuffle(colorList);
+                        colors = colorList.toArray(new Color[0]);
                     }
 
-                    int dx = (width - cellWidth * N * threadsPerRow) / 2;
-                    int dy = (height - cellHeight * N * threadsPerRow) / 2;
+                    @Override
+                    public Dimension getPreferredSize() {
+                        return new Dimension(panelSize, panelSize);
+                    }
 
-                    for (int row = 0; row < N * threadsPerRow; row++) {
-                        for (int col = 0; col < N * threadsPerRow; col++) {
-                            int id = row / N * threadsPerRow + col / N;
-                            int x = row % N + 1;
-                            int y = col % N + 1;
-                            if (guiBoard[id][x][y]) {
-                                if (control == ControlEnum.PAUSE) {
-                                    g2.setColor(Color.darkGray);
+                    @Override
+                    public void paintComponent(Graphics g) {
+                        super.paintComponent(g);
+
+                        Graphics2D g2 = (Graphics2D) g.create();
+
+                        int width = this.getWidth();
+                        int height = this.getHeight();
+
+                        g2.setColor(Color.lightGray);
+                        g2.fillRect(0, 0, width, height);
+
+                        int cellWidth = width / (N * threadsPerRow);
+                        int cellHeight = height / (N * threadsPerRow);
+
+                        if (cellWidth < cellHeight) {
+                            cellHeight = cellWidth;
+                        } else {
+                            cellWidth = cellHeight;
+                        }
+
+                        int dx = (width - cellWidth * N * threadsPerRow) / 2;
+                        int dy = (height - cellHeight * N * threadsPerRow) / 2;
+
+                        for (int row = 0; row < N * threadsPerRow; row++) {
+                            for (int col = 0; col < N * threadsPerRow; col++) {
+                                int id = row / N * threadsPerRow + col / N;
+                                int x = row % N + 1;
+                                int y = col % N + 1;
+                                if (guiBoard[id][x][y]) {
+                                    if (control == ControlEnum.PAUSE) {
+                                        g2.setColor(Color.darkGray);
+                                    } else {
+                                        g2.setColor(Color.black);
+                                    }
                                 } else {
-                                    g2.setColor(Color.black);
+                                    g2.setColor(colors[id]);
                                 }
-                            } else {
-                                g2.setColor(colors[id]);
+                                g2.fillRect(dx + row * cellWidth, dy + col * cellHeight, cellWidth, cellHeight);
                             }
-                            g2.fillRect(dx + row * cellWidth, dy + col * cellHeight, cellWidth, cellHeight);
+                        }
+                        g2.dispose();
+                    }
+                };
+                frame.addKeyListener(new KeyAdapter() {
+                    @Override
+                    public void keyReleased(KeyEvent e) {
+                        System.out.println("KeyEvent: " + e.paramString());
+                        switch (e.getKeyCode()) {
+                            case KeyEvent.VK_SPACE:
+                                if (!control.equals(ControlEnum.PAUSE)) {
+                                    changeControl(ControlEnum.PAUSE);
+                                    panel.repaint();
+                                    break;
+                                } else {
+                                    changeControl(ControlEnum.EXCHANGE);
+                                    break;
+                                }
+                            case KeyEvent.VK_ESCAPE:
+                                frame.dispose();
+                                changeControl(ControlEnum.STOP);
+                                break;
+                            case KeyEvent.VK_PAGE_UP:
+                                panelSize += 100;
+                                panel.revalidate();
+                                panelSizeLabel.setText("PanelSize = " + panelSize);
+                                break;
+                            case KeyEvent.VK_PAGE_DOWN:
+                                if (panelSize >= sideSize + 100) {
+                                    panelSize -= 100;
+                                }
+                                panel.revalidate();
+                                panelSizeLabel.setText("PanelSize = " + panelSize);
+                                break;
+                            case KeyEvent.VK_MINUS:
+                                sleepTime += 100;
+                                sleepTimeLabel.setText("SleepTime = " + sleepTime);
+                                break;
+                            case KeyEvent.VK_EQUALS:
+                                if (sleepTime >= 50) {
+                                    sleepTime -= 50;
+                                }
+                                sleepTimeLabel.setText("SleepTime = " + sleepTime);
+                                break;
+                            default:
+                                break;
                         }
                     }
-                    g2.dispose();
-                }
-            };
-            frame.addKeyListener(new KeyAdapter() {
-                @Override
-                public void keyReleased(KeyEvent e) {
-                    System.out.println("KeyEvent: " + e.paramString());
-                    switch (e.getKeyCode()) {
-                        case KeyEvent.VK_SPACE:
+                });
+
+                panel.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        System.out.println("MouseEvent: " + e.paramString());
+                        if (e.getButton() == MouseEvent.BUTTON1) {
                             if (!control.equals(ControlEnum.PAUSE)) {
                                 changeControl(ControlEnum.PAUSE);
                                 panel.repaint();
-                                break;
-                            } else {
+                                return;
+                            }
+                        } else {
+                            if (control.equals(ControlEnum.PAUSE)) {
                                 changeControl(ControlEnum.EXCHANGE);
-                                break;
                             }
-                        case KeyEvent.VK_ESCAPE:
-                            frame.dispose();
-                            changeControl(ControlEnum.STOP);
-                            break;
-                        case KeyEvent.VK_PAGE_UP:
-                            panelSize += 100;
-                            panel.revalidate();
-                            panelSizeLabel.setText("PanelSize = " + panelSize);
-                            break;
-                        case KeyEvent.VK_PAGE_DOWN:
-                            if (panelSize >= sideSize + 100) {
-                                panelSize -= 100;
-                            }
-                            panel.revalidate();
-                            panelSizeLabel.setText("PanelSize = " + panelSize);
-                            break;
-                        case KeyEvent.VK_MINUS:
-                            sleepTime += 100;
-                            sleepTimeLabel.setText("SleepTime = " + sleepTime);
-                            break;
-                        case KeyEvent.VK_EQUALS:
-                            if (sleepTime >= 50) {
-                                sleepTime -= 50;
-                            }
-                            sleepTimeLabel.setText("SleepTime = " + sleepTime);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            });
-
-            panel.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    System.out.println("MouseEvent: " + e.paramString());
-                    if (e.getButton() == MouseEvent.BUTTON1) {
-                        if (!control.equals(ControlEnum.PAUSE)) {
-                            changeControl(ControlEnum.PAUSE);
-                            panel.repaint();
                             return;
                         }
-                    } else {
-                        if (control.equals(ControlEnum.PAUSE)) {
-                            changeControl(ControlEnum.EXCHANGE);
+
+                        JPanel panel = (JPanel) e.getSource();
+
+                        int width = panel.getWidth();
+                        int height = panel.getHeight();
+
+                        int cellWidth = width / (N * threadsPerRow);
+                        int cellHeight = height / (N * threadsPerRow);
+
+                        if (cellWidth < cellHeight) {
+                            cellHeight = cellWidth;
+                        } else {
+                            cellWidth = cellHeight;
                         }
-                        return;
+
+                        int dx = (width - cellWidth * N * threadsPerRow) / 2;
+                        int dy = (height - cellHeight * N * threadsPerRow) / 2;
+
+                        int row = (e.getPoint().x - dx) / cellWidth;
+                        int col = (e.getPoint().y - dy) / cellHeight;
+
+                        if (row < 0 || col < 0 || row >= N * threadsPerRow || col >= N * threadsPerRow) {
+                            return;
+                        }
+
+                        int id = row / N * threadsPerRow + col / N;
+                        int x = row % N + 1;
+                        int y = col % N + 1;
+
+                        guiBoard[id][x][y] ^= true;
+                        PCJ.put(guiBoard[id][x][y], id, Shared.boards, (step + 1) % 2, x, y);
+                        panel.repaint();
                     }
 
-                    JPanel panel = (JPanel) e.getSource();
+                });
 
-                    int width = panel.getWidth();
-                    int height = panel.getHeight();
+                JScrollPane scrollPane = new JScrollPane(panel,
+                        ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                        ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-                    int cellWidth = width / (N * threadsPerRow);
-                    int cellHeight = height / (N * threadsPerRow);
+                frame.add(scrollPane, BorderLayout.CENTER);
+                JPanel labelPanel = new JPanel();
+                labelPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 1));
+                labelPanel.add(new JLabel(String.format("Size = %dx%d", sideSize, sideSize)));
+                labelPanel.add(new JLabel("|"));
 
-                    if (cellWidth < cellHeight) {
-                        cellHeight = cellWidth;
-                    } else {
-                        cellWidth = cellHeight;
-                    }
+                labelPanel.add(new JLabel(String.format("Threads = %d (%d nodes)", PCJ.threadCount(), PCJ.getNodeCount())));
+                labelPanel.add(new JLabel("|"));
 
-                    int dx = (width - cellWidth * N * threadsPerRow) / 2;
-                    int dy = (height - cellHeight * N * threadsPerRow) / 2;
+                sleepTimeLabel = new JLabel(String.format("SleepTime = %d", sleepTime));
+                labelPanel.add(sleepTimeLabel);
+                labelPanel.add(new JLabel("|"));
 
-                    int row = (e.getPoint().x - dx) / cellWidth;
-                    int col = (e.getPoint().y - dy) / cellHeight;
+                panelSizeLabel = new JLabel(String.format("PanelSize = %d", panelSize));
+                labelPanel.add(panelSizeLabel);
+                labelPanel.add(new JLabel("|"));
 
-                    if (row < 0 || col < 0 || row >= N * threadsPerRow || col >= N * threadsPerRow) {
-                        return;
-                    }
-
-                    int id = row / N * threadsPerRow + col / N;
-                    int x = row % N + 1;
-                    int y = col % N + 1;
-
-                    guiBoard[id][x][y] ^= true;
-                    PCJ.put(guiBoard[id][x][y], id, Shared.boards, (step + 1) % 2, x, y);
-                    panel.repaint();
-                }
-
-            });
-
-            JScrollPane scrollPane = new JScrollPane(panel,
-                    ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-                    ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-
-            frame.add(scrollPane, BorderLayout.CENTER);
-            JPanel labelPanel = new JPanel();
-            labelPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 1));
-            labelPanel.add(new JLabel(String.format("Size = %dx%d", sideSize, sideSize)));
-            labelPanel.add(new JLabel("|"));
-
-            labelPanel.add(new JLabel(String.format("Threads = %d (%d nodes)", PCJ.threadCount(), PCJ.getNodeCount())));
-            labelPanel.add(new JLabel("|"));
-
-            sleepTimeLabel = new JLabel(String.format("SleepTime = %d", sleepTime));
-            labelPanel.add(sleepTimeLabel);
-            labelPanel.add(new JLabel("|"));
-
-            panelSizeLabel = new JLabel(String.format("PanelSize = %d", panelSize));
-            labelPanel.add(panelSizeLabel);
-            labelPanel.add(new JLabel("|"));
-
-            performanceLabel = new JLabel("Performance");
-            labelPanel.add(performanceLabel);
+                performanceLabel = new JLabel("Performance");
+                labelPanel.add(performanceLabel);
 
 //            threadPool = Executors.newScheduledThreadPool(1);
 //
@@ -313,27 +320,35 @@ public class GameOfLifeGui implements StartPoint {
 //                    SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
 //                }
 //            }, 0, 500, TimeUnit.MILLISECONDS);
-            frame.add(labelPanel, BorderLayout.PAGE_START);
+                frame.add(labelPanel, BorderLayout.PAGE_START);
 
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.pack();
-            frame.setSize(650, 650);
-            frame.setVisible(true);
+                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                frame.pack();
+                frame.setSize(650, 650);
+                frame.setVisible(true);
+            }
         }
 
         init();
-        paintBoards();
+        if (enabledGUI) {
+            paintBoards();
+        }
 
         PCJ.barrier();
 
+        lastTime = System.nanoTime();
         while (!control.equals(ControlEnum.STOP)) {
-            PCJ.waitFor(Shared.control);
-            if (control.equals(ControlEnum.PLAY)) {
+            if (enabledGUI) {
+                PCJ.waitFor(Shared.control);
+            }
+            if (!enabledGUI || control.equals(ControlEnum.PLAY)) {
                 ++step;
 
                 calculate();
-
-                paintBoards();
+                if (enabledGUI) {
+                    paintBoards();
+                    changeControl(control);
+                }
 
                 exchange();
 
@@ -351,7 +366,9 @@ public class GameOfLifeGui implements StartPoint {
                             lastTime = nowTime;
                             String rateString = String.format("%.0f cells/s", rate);
                             System.out.println(rateString);
-                            SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+                            if (enabledGUI) {
+                                SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+                            }
                         }
                     }
                 }
@@ -522,7 +539,6 @@ public class GameOfLifeGui implements StartPoint {
 
         PCJ.asyncPut(board, 0, GuiBoard.guiBoard, PCJ.myId());
         if (PCJ.myId() == 0) {
-            PCJ.waitFor(GuiBoard.guiBoard, PCJ.threadCount());
             panel.repaint();
             try {
                 if (sleepTime > 0) {
@@ -530,7 +546,6 @@ public class GameOfLifeGui implements StartPoint {
                 }
             } catch (InterruptedException ex) {
             }
-            PCJ.broadcast(control, Shared.control);
         }
     }
 
