@@ -35,12 +35,10 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.swing.JFrame;
@@ -62,7 +60,8 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLifeGui.Shared.class)
 public class GameOfLifeGui implements StartPoint {
 
-    private ControlEnum control = ControlEnum.PAUSE;
+    private final boolean disableGui = Boolean.parseBoolean(System.getProperty("gui.disabled", "false"));
+    private ControlEnum control = disableGui ? ControlEnum.PLAY : ControlEnum.PAUSE;
     private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
 
     private long lastCells = 0;
@@ -71,9 +70,8 @@ public class GameOfLifeGui implements StartPoint {
     private final int sideSize = 120 * 2 * 20;
     private final int N = sideSize / threadsPerRow;
 
-    private final boolean enabledGUI = false;
     private int panelSize = Math.max(500, sideSize);
-    private int sleepTime = 0;
+    private int sleepTime = disableGui ? 0 : 100;
 
     @Storage(GameOfLifeGui.class)
     enum GuiBoard {
@@ -119,9 +117,9 @@ public class GameOfLifeGui implements StartPoint {
             System.out.printf("Threads = %d (%d nodes)\n", PCJ.threadCount(), PCJ.getNodeCount());
             System.out.printf("SleepTime = %d\n", sleepTime);
             System.out.printf("PanelSize = %d\n", panelSize);
-            System.out.printf("EnabledGUI = %s\n", enabledGUI);
+            System.out.printf("DisableGUI = %s\n", disableGui);
 
-            if (enabledGUI) {
+            if (!disableGui) {
                 JFrame frame = new JFrame();
                 panel = new JPanel() {
                     private final Color[] colors;
@@ -330,7 +328,7 @@ public class GameOfLifeGui implements StartPoint {
         }
 
         init();
-        if (enabledGUI) {
+        if (!disableGui) {
             paintBoards();
         }
 
@@ -338,14 +336,14 @@ public class GameOfLifeGui implements StartPoint {
 
         lastTime = System.nanoTime();
         while (!control.equals(ControlEnum.STOP)) {
-            if (enabledGUI) {
+            if (!disableGui) {
                 PCJ.waitFor(Shared.control);
             }
-            if (!enabledGUI || control.equals(ControlEnum.PLAY)) {
+            if (disableGui || control.equals(ControlEnum.PLAY)) {
                 ++step;
 
                 calculate();
-                if (enabledGUI) {
+                if (!disableGui) {
                     paintBoards();
                     changeControl(control);
                 }
@@ -364,10 +362,10 @@ public class GameOfLifeGui implements StartPoint {
                         if (deltaCells > 0) {
                             lastCells = nowCells;
                             lastTime = nowTime;
-                            String rateString = String.format("%.0f cells/s", rate);
-                            System.out.println(rateString);
-                            if (enabledGUI) {
-                                SwingUtilities.invokeLater(() -> performanceLabel.setText(rateString));
+
+                            System.out.printf("%.0f cells/s\n", rate);
+                            if (!disableGui) {
+                                SwingUtilities.invokeLater(() -> performanceLabel.setText(NumberFormat.getIntegerInstance().format(rate) + " cells/s"));
                             }
                         }
                     }
