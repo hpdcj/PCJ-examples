@@ -76,7 +76,7 @@ public class GameOfLifeGui implements StartPoint {
     enum GuiBoard {
         guiBoard
     }
-    private final boolean[][][] guiBoard = PCJ.myId() == 0 ? new boolean[PCJ.threadCount()][N + 2][N + 2] : null;
+    private final boolean[][][] guiBoard = disableGui ? null : (PCJ.myId() == 0 ? new boolean[PCJ.threadCount()][N + 2][N + 2] : null);
     private JPanel panel;
     private JLabel performanceLabel;
     private JLabel panelSizeLabel;
@@ -111,16 +111,16 @@ public class GameOfLifeGui implements StartPoint {
     @Override
     public void main() throws Throwable {
         if (PCJ.myId() == 0) {
-            PCJ.registerStorage(GuiBoard.class, this);
-
             System.out.printf("Size = %dx%d\n", sideSize, sideSize);
             System.out.printf("Threads = %d (%d nodes)\n", PCJ.threadCount(), PCJ.getNodeCount());
-            System.out.printf("SleepTime = %d\n", sleepTime);
-            System.out.printf("PanelSize = %d\n", panelSize);
-            System.out.printf("DisableGUI = %s\n", disableGui);
             System.out.printf("maxSteps = %s\n", maxSteps);
+            System.out.printf("DisableGUI = %s\n", disableGui);
 
             if (!disableGui) {
+                System.out.printf("SleepTime = %d\n", sleepTime);
+                System.out.printf("PanelSize = %d\n", panelSize);
+                
+                PCJ.registerStorage(GuiBoard.class, this);
                 JFrame frame = new JFrame();
                 panel = new JPanel() {
                     private final Color[] colors;
@@ -390,7 +390,7 @@ public class GameOfLifeGui implements StartPoint {
         if (seed != null) {
             rand.setSeed(Long.parseLong(seed));
         }
-        
+
         for (int row = 0; row < board.length; row++) {
             for (int col = 0; col < board[row].length; col++) {
                 board[row][col] = (rand.nextDouble() <= 0.15);
