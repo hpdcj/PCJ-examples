@@ -350,13 +350,13 @@ public class GameOfLife implements StartPoint {
         Board currentBoard = boards[step % 2];
         Board nextBoard = boards[(step + 1) % 2];
 
-        for (int x = 1; x <= colsPerThread; ++x) {
         for (int y = 1; y <= rowsPerThread; ++y) {
+            for (int x = 1; x <= colsPerThread; ++x) {
                 int neightbours = countNeightbours(currentBoard, x, y);
                 // B3/S23
                 switch (neightbours) {
                     case 2:
-                        // survive (if alive) - do not change state
+                        // survive (if alive)
                         nextBoard.set(x, y, currentBoard.get(x, y));
                         break;
                     case 3:
