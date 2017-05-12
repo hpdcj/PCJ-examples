@@ -26,8 +26,6 @@
 package org.pcj.examples;
 
 import java.util.BitSet;
-import java.util.Random;
-import javax.swing.SwingUtilities;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
@@ -111,8 +109,6 @@ public class GameOfLife implements StartPoint {
     public void main() throws Throwable {
         init();
 
-//        printBoards();
-//        printWholeBoard();
         PcjFuture<Void> barrier = PCJ.asyncBarrier();
 
         long startTime = System.nanoTime();
@@ -123,22 +119,11 @@ public class GameOfLife implements StartPoint {
             exchange();
 
             barrier = PCJ.asyncBarrier();
-
-//            if (PCJ.myId() == 0) {
-//                System.out.println("----------- " + stepNumber + " ---------");
-//            }
-//            printWholeBoard();
         }
 
         if (PCJ.myId() == 0) {
             System.out.printf("time: %.3fs%n", (System.nanoTime() - startTime) / 1e9);
         }
-
-//        if (PCJ.myId() == 0) {
-//            System.out.println("-----------");
-//        }
-//        printBoards();
-//        printWholeBoard();
     }
 
     private void init() {
