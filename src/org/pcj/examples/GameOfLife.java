@@ -352,10 +352,11 @@ public class GameOfLife implements StartPoint {
         for (int x = 1; x <= colsPerThread; ++x) {
             for (int y = 1; y <= rowsPerThread; ++y) {
                 int neightbours = countNeightbours(currentBoard, x, y);
+                // B3/S23
                 switch (neightbours) {
                     case 2:
-                        // survive (if alive)
-                        nextBoard.set(x, y, currentBoard.get(x, y));
+                        // survive (if alive) - do not change state
+                        //nextBoard.set(x, y, currentBoard.get(x, y));
                         break;
                     case 3:
                         // born (or survive)
