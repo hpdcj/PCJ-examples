@@ -41,9 +41,9 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLife.Shared.class)
 public class GameOfLife implements StartPoint {
 
-    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "20"));
-    private static final int COLS = Integer.parseInt(System.getProperty("cols", "20"));
-    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "15"));
+    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "10000"));
+    private static final int COLS = Integer.parseInt(System.getProperty("cols", "800"));
+    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "600"));
     private static final String SEED = System.getProperty("seed");
 
     private final int threadsPerRow;
@@ -168,9 +168,9 @@ public class GameOfLife implements StartPoint {
                         System.out.printf("%.0f cells/s\n", rate);
                     }
                 }
-                System.out.println("-----");
+//                System.out.println("-----");
             }
-            printWholeBoard();
+//            printWholeBoard();
         }
 
         if (PCJ.myId() == 0) {
@@ -188,30 +188,31 @@ public class GameOfLife implements StartPoint {
 
         Board board = boards[0];
 
-        if (PCJ.myId() == 0) {
-            String[] plansza = {
-                ".X.",
-                "..X",
-                "XXX"
-            };
-            for (int y = 0; y < plansza.length; y++) {
-                for (int x = 0; x < plansza[y].length(); x++) {
-                    if (plansza[y].charAt(x) != '.') {
-                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-                    }
-                }
-            }
-        }
-//        Random rand = new Random();
-//        if (SEED != null) {
-//            rand.setSeed(Long.parseLong(SEED));
-//        }
-//
-//        for (int y = 1; y <= rowsPerThread; y++) {
-//            for (int x = 1; x <= colsPerThread; x++) {
-//                board.set(x, y, rand.nextDouble() <= 0.15);
+//        if (PCJ.myId() == 0) {
+//            String[] plansza = {
+//                ".X.",
+//                "..X",
+//                "XXX"
+//            };
+//            for (int y = 0; y < plansza.length; y++) {
+//                for (int x = 0; x < plansza[y].length(); x++) {
+//                    if (plansza[y].charAt(x) != '.') {
+//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+//                    }
+//                }
 //            }
 //        }
+        
+        Random rand = new Random();
+        if (SEED != null) {
+            rand.setSeed(Long.parseLong(SEED));
+        }
+
+        for (int y = 1; y <= rowsPerThread; y++) {
+            for (int x = 1; x <= colsPerThread; x++) {
+                board.set(x, y, rand.nextDouble() <= 0.15);
+            }
+        }
 
         exchange();
         step = 0;
@@ -350,14 +351,24 @@ public class GameOfLife implements StartPoint {
         Board currentBoard = boards[step % 2];
         Board nextBoard = boards[(step + 1) % 2];
 
+        int[] old = new int[3];
         for (int y = 1; y <= rowsPerThread; ++y) {
+            old[2] = (currentBoard.get(0, y - 1) ? 1 : 0)
+                    + (currentBoard.get(0, y) ? 1 : 0)
+                    + (currentBoard.get(0, y + 1) ? 1 : 0);
+            old[1] = (currentBoard.get(1, y - 1) ? 1 : 0)
+                    + (currentBoard.get(1, y) ? 1 : 0)
+                    + (currentBoard.get(1, y + 1) ? 1 : 0);
             for (int x = 1; x <= colsPerThread; ++x) {
-                int neightbours = countNeightbours(currentBoard, x, y);
+                boolean v = currentBoard.get(x, y);
+                old[0] = (currentBoard.get(x + 1, y - 1) ? 1 : 0)
+                        + (currentBoard.get(x + 1, y) ? 1 : 0)
+                        + (currentBoard.get(x + 1, y + 1) ? 1 : 0);
                 // B3/S23
-                switch (neightbours) {
+                switch (old[0] + old[1] + old[2] - (v ? 1 : 0)) {
                     case 2:
                         // survive (if alive)
-                        nextBoard.set(x, y, currentBoard.get(x, y));
+                        nextBoard.set(x, y, v);
                         break;
                     case 3:
                         // born (or survive)
@@ -368,6 +379,8 @@ public class GameOfLife implements StartPoint {
                         nextBoard.set(x, y, false);
                         break;
                 }
+                old[2] = old[1];
+                old[1] = old[0];
             }
         }
     }
