@@ -26,6 +26,7 @@
 package org.pcj.examples;
 
 import java.util.BitSet;
+import java.util.Random;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
@@ -40,28 +41,46 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLife.Shared.class)
 public class GameOfLife implements StartPoint {
 
-    private static final int STEPS = 10;
-    private static final int COLS = 16;
-    private static final int ROWS = 12;
+    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "10"));
+    private static final int COLS = Integer.parseInt(System.getProperty("cols", "8000"));
+    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "6000"));
+    private static final String SEED = System.getProperty("seed");
 
     private final int threadsPerRow;
     private final int threadsPerCol;
 
     {
-        int midPoint;
-        for (midPoint = (int) Math.sqrt(PCJ.threadCount()); midPoint > 1; midPoint--) {
-            if (PCJ.threadCount() % midPoint == 0) {
-                break;
+        if (Boolean.parseBoolean(System.getProperty("onlyRows", "false"))) {
+            threadsPerRow = 1;
+            threadsPerCol = PCJ.threadCount();
+        } else {
+            int midPoint;
+            for (midPoint = (int) Math.sqrt(PCJ.threadCount()); midPoint > 1; midPoint--) {
+                if (PCJ.threadCount() % midPoint == 0) {
+                    break;
+                }
+            }
+            int factor = PCJ.threadCount() / midPoint;
+            if (COLS % midPoint == 0 && ROWS % factor == 0) {
+                threadsPerRow = midPoint;
+                threadsPerCol = factor;
+            } else if (COLS % factor == 0 && ROWS % midPoint == 0) {
+                threadsPerRow = factor;
+                threadsPerCol = midPoint;
+            } else if (COLS % midPoint == 0) {
+                threadsPerRow = midPoint;
+                threadsPerCol = factor;
+            } else {
+                threadsPerRow = factor;
+                threadsPerCol = midPoint;
             }
         }
-        threadsPerRow = midPoint;
-        threadsPerCol = PCJ.threadCount() / midPoint;
     }
 
-    private final int rowsPerThread = ROWS / threadsPerRow;
-    private final int colsPerThread = COLS / threadsPerCol;
-    private final boolean isFirstColumn = PCJ.myId() % threadsPerCol == 0;
-    private final boolean isLastColumn = PCJ.myId() % threadsPerCol == threadsPerCol - 1;
+    private final int rowsPerThread = ROWS / threadsPerCol;
+    private final int colsPerThread = COLS / threadsPerRow;
+    private final boolean isFirstColumn = PCJ.myId() % threadsPerRow == 0;
+    private final boolean isLastColumn = PCJ.myId() % threadsPerRow == threadsPerRow - 1;
     private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
     private final boolean isLastRow = PCJ.myId() >= PCJ.threadCount() - threadsPerRow;
     private final Board[] boards = new Board[2];
@@ -107,11 +126,24 @@ public class GameOfLife implements StartPoint {
 
     @Override
     public void main() throws Throwable {
+        if (PCJ.myId() == 0) {
+            System.out.printf("Size = %dx%d (%dx%d)\n", COLS, ROWS, colsPerThread, rowsPerThread);
+            System.out.printf("Threads = %d (%d nodes)\n", PCJ.threadCount(), PCJ.getNodeCount());
+            System.out.printf("ThreadsPerRow = %d\n", threadsPerRow);
+            System.out.printf("ThreadsPerCol = %d\n", threadsPerCol);
+            System.out.printf("MaxSteps = %d\n", STEPS);
+            System.out.printf("Seed = %s\n", SEED);
+        }
+
         init();
 
         PcjFuture<Void> barrier = PCJ.asyncBarrier();
 
-        long startTime = System.nanoTime();
+        long cellsPerStep = (long) rowsPerThread * colsPerThread * PCJ.threadCount();
+        long lastTime;
+        long lastCells = 0;
+        long nowCells = 0;
+        long startTime = lastTime = System.nanoTime();
         for (step = 0; step <= STEPS; ++step) {
             step();
 
@@ -119,10 +151,34 @@ public class GameOfLife implements StartPoint {
             exchange();
 
             barrier = PCJ.asyncBarrier();
+
+            if (PCJ.myId() == 0) {
+                nowCells += cellsPerStep;
+
+                long nowTime = System.nanoTime();
+                long deltaTime = nowTime - lastTime;
+
+                if (deltaTime > 1_000_000_000) {
+                    long deltaCells = nowCells - lastCells;
+                    double rate = (double) deltaCells / (deltaTime / 1e9);
+                    if (deltaCells > 0) {
+                        lastCells = nowCells;
+                        lastTime = nowTime;
+
+                        System.out.printf("%.0f cells/s\n", rate);
+                    }
+                }
+
+            }
         }
 
         if (PCJ.myId() == 0) {
-            System.out.printf("time: %.3fs%n", (System.nanoTime() - startTime) / 1e9);
+            long nowTime = System.nanoTime();
+            long deltaTime = nowTime - startTime;
+
+            double rate = (double) nowCells / (deltaTime / 1e9);
+
+            System.out.printf("%d threads on %d nodes processed %d cells in %.3f seconds (%.0f cells/s)\n", PCJ.threadCount(), PCJ.getNodeCount(), nowCells, deltaTime / 1e9, rate);
         }
     }
 
@@ -130,32 +186,32 @@ public class GameOfLife implements StartPoint {
         step = -1;
 
         Board board = boards[0];
-        if (PCJ.myId() == 0) {
-            String[] plansza = {
-                ".X.",
-                "..X",
-                "XXX"
-            };
-            for (int y = 0; y < plansza.length; y++) {
-                for (int x = 0; x < plansza[y].length(); x++) {
-                    if (plansza[y].charAt(x) != '.') {
-                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-                    }
-                }
+
+//        if (PCJ.myId() == 0) {
+//            String[] plansza = {
+//                ".X.",
+//                "..X",
+//                "XXX"
+//            };
+//            for (int y = 0; y < plansza.length; y++) {
+//                for (int x = 0; x < plansza[y].length(); x++) {
+//                    if (plansza[y].charAt(x) != '.') {
+//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+//                    }
+//                }
+//            }
+//        }
+        Random rand = new Random();
+        if (SEED != null) {
+            rand.setSeed(Long.parseLong(SEED));
+        }
+
+        for (int y = 1; y <= rowsPerThread; y++) {
+            for (int x = 1; x <= colsPerThread; x++) {
+                board.set(x, y, rand.nextDouble() <= 0.15);
             }
         }
 
-//        Random rand = new Random();
-//        String seed = System.getProperty("seed");
-//        if (seed != null) {
-//            rand.setSeed(Long.parseLong(seed));
-//        }
-//
-//        for (int y = 1; y <= rowsPerThread; y++) {
-//            for (int x = 1; x <= colsPerThread; x++) {
-//                board.set(x, y, rand.nextDouble() <= 0.15);
-//            }
-//        }
         exchange();
         step = 0;
     }
