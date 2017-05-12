@@ -119,7 +119,7 @@ public class GameOfLifeGui implements StartPoint {
             if (!disableGui) {
                 System.out.printf("SleepTime = %d\n", sleepTime);
                 System.out.printf("PanelSize = %d\n", panelSize);
-                
+
                 PCJ.registerStorage(GuiBoard.class, this);
                 JFrame frame = new JFrame();
                 panel = new JPanel() {
@@ -337,7 +337,7 @@ public class GameOfLifeGui implements StartPoint {
                 exchange();
 
                 if (PCJ.myId() == 0) {
-                    nowCells += N * N * PCJ.threadCount();
+                    nowCells += (long) N * N * PCJ.threadCount();
 
                     long nowTime = System.nanoTime();
                     long deltaTime = nowTime - lastTime;
@@ -524,11 +524,11 @@ public class GameOfLifeGui implements StartPoint {
                             "localhost",
                             "localhost",
                             "localhost",
-                            "localhost", //                    "localhost",
-                        //                    "localhost",
-                        //                    "localhost",
-                        //                    "localhost",
-                        //                    "localhost"
+                            "localhost", //                            "localhost",
+                        //                            "localhost",
+                        //                            "localhost",
+                        //                            "localhost",
+                        //                            "localhost"
                         }
                 ));
     }
