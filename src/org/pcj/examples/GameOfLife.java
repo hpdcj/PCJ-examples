@@ -27,8 +27,10 @@ package org.pcj.examples;
 
 import java.util.BitSet;
 import java.util.Random;
+import javax.swing.SwingUtilities;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
+import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
@@ -103,7 +105,7 @@ public class GameOfLife implements StartPoint {
         sendShared.W = new BitSet(rowsPerThread);
     }
 
-    private int stepNumber;
+    private int step;
 
     @Override
     public void main() throws Throwable {
@@ -111,66 +113,70 @@ public class GameOfLife implements StartPoint {
 
 //        printBoards();
 //        printWholeBoard();
-        long start = System.nanoTime();
-        PCJ.barrier();
+        PcjFuture<Void> barrier = PCJ.asyncBarrier();
 
-        for (stepNumber = 0; stepNumber <= STEPS; ++stepNumber) {
+        long startTime = System.nanoTime();
+        for (step = 0; step <= STEPS; ++step) {
             step();
+
+            barrier.get();
             exchange();
 
-            if (PCJ.myId() == 0) {
-                System.out.println("----------- " + stepNumber + " ---------");
-            }
-//            PCJ.barrier();
+            barrier = PCJ.asyncBarrier();
 
-            printWholeBoard();
+//            if (PCJ.myId() == 0) {
+//                System.out.println("----------- " + stepNumber + " ---------");
+//            }
+//            printWholeBoard();
         }
+
         if (PCJ.myId() == 0) {
-            System.out.printf("time: %.3fs%n", (System.nanoTime() - start) / 1e9);
+            System.out.printf("time: %.3fs%n", (System.nanoTime() - startTime) / 1e9);
         }
+
 //        if (PCJ.myId() == 0) {
 //            System.out.println("-----------");
 //        }
 //        printBoards();
+//        printWholeBoard();
     }
 
     private void init() {
-        stepNumber = -1;
+        step = -1;
 
         Board board = boards[0];
-//        if (PCJ.myId() == 0) {
-//            String[] plansza = {
-//                ".X.",
-//                "..X",
-//                "XXX"
-//            };
-//            for (int y = 0; y < plansza.length; y++) {
-//                for (int x = 0; x < plansza[y].length(); x++) {
-//                    if (plansza[y].charAt(x) != '.') {
-//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-//                    }
-//                }
-//            }
-//        }
-
-        Random rand = new Random();
-        String seed = System.getProperty("seed");
-        if (seed != null) {
-            rand.setSeed(Long.parseLong(seed));
-        }
-
-        for (int y = 1; y <= rowsPerThread; y++) {
-            for (int x = 1; x <= colsPerThread; x++) {
-                board.set(x, y, rand.nextDouble() <= 0.15);
+        if (PCJ.myId() == 0) {
+            String[] plansza = {
+                ".X.",
+                "..X",
+                "XXX"
+            };
+            for (int y = 0; y < plansza.length; y++) {
+                for (int x = 0; x < plansza[y].length(); x++) {
+                    if (plansza[y].charAt(x) != '.') {
+                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+                    }
+                }
             }
         }
 
+//        Random rand = new Random();
+//        String seed = System.getProperty("seed");
+//        if (seed != null) {
+//            rand.setSeed(Long.parseLong(seed));
+//        }
+//
+//        for (int y = 1; y <= rowsPerThread; y++) {
+//            for (int x = 1; x <= colsPerThread; x++) {
+//                board.set(x, y, rand.nextDouble() <= 0.15);
+//            }
+//        }
         exchange();
-        stepNumber = 0;
+        step = 0;
     }
 
     private void exchange() {
-        int nextStep = (stepNumber + 1) % 2;
+        int nextStep = (step + 1) % 2;
         Board board = boards[nextStep];
 
         /* sending */
@@ -263,7 +269,7 @@ public class GameOfLife implements StartPoint {
     }
 
     private void printBoards() {
-        Board board = boards[stepNumber % 2];
+        Board board = boards[step % 2];
         for (int i = 0; i < PCJ.threadCount(); i++) {
             if (PCJ.myId() == i) {
                 System.out.println("Id: " + PCJ.myId());
@@ -280,7 +286,7 @@ public class GameOfLife implements StartPoint {
     }
 
     private void printWholeBoard() {
-        Board board = boards[stepNumber % 2];
+        Board board = boards[step % 2];
 
         for (int globalRow = 0; globalRow < rowsPerThread * threadsPerCol; globalRow++) {
             for (int colThread = 0; colThread < threadsPerRow; colThread++) {
@@ -299,8 +305,8 @@ public class GameOfLife implements StartPoint {
     }
 
     private void step() {
-        Board currentBoard = boards[stepNumber % 2];
-        Board nextBoard = boards[(stepNumber + 1) % 2];
+        Board currentBoard = boards[step % 2];
+        Board nextBoard = boards[(step + 1) % 2];
 
         for (int x = 1; x <= colsPerThread; ++x) {
             for (int y = 1; y <= rowsPerThread; ++y) {
@@ -334,13 +340,14 @@ public class GameOfLife implements StartPoint {
                 + (board.get(x + 1, y + 1) ? 1 : 0);
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Throwable {
+//        PCJ.start(GameOfLife.class, new NodesDescription("nodes.txt"));
         PCJ.deploy(GameOfLife.class,
                 new NodesDescription(new String[]{
             "localhost",
-            "localhost:8080",
-            "localhost:8080",
-            "localhost:8080", //            "localhost",
+            "localhost",
+            "localhost",
+            "localhost", //            "localhost",
         //            "localhost",
         //            "localhost",
         //            "localhost",
