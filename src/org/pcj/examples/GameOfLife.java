@@ -41,9 +41,9 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLife.Shared.class)
 public class GameOfLife implements StartPoint {
 
-    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "10"));
-    private static final int COLS = Integer.parseInt(System.getProperty("cols", "8000"));
-    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "6000"));
+    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "20"));
+    private static final int COLS = Integer.parseInt(System.getProperty("cols", "20"));
+    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "15"));
     private static final String SEED = System.getProperty("seed");
 
     private final int threadsPerRow;
@@ -168,8 +168,9 @@ public class GameOfLife implements StartPoint {
                         System.out.printf("%.0f cells/s\n", rate);
                     }
                 }
-
+                System.out.println("-----");
             }
+            printWholeBoard();
         }
 
         if (PCJ.myId() == 0) {
@@ -187,30 +188,30 @@ public class GameOfLife implements StartPoint {
 
         Board board = boards[0];
 
-//        if (PCJ.myId() == 0) {
-//            String[] plansza = {
-//                ".X.",
-//                "..X",
-//                "XXX"
-//            };
-//            for (int y = 0; y < plansza.length; y++) {
-//                for (int x = 0; x < plansza[y].length(); x++) {
-//                    if (plansza[y].charAt(x) != '.') {
-//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-//                    }
-//                }
-//            }
-//        }
-        Random rand = new Random();
-        if (SEED != null) {
-            rand.setSeed(Long.parseLong(SEED));
-        }
-
-        for (int y = 1; y <= rowsPerThread; y++) {
-            for (int x = 1; x <= colsPerThread; x++) {
-                board.set(x, y, rand.nextDouble() <= 0.15);
+        if (PCJ.myId() == 0) {
+            String[] plansza = {
+                ".X.",
+                "..X",
+                "XXX"
+            };
+            for (int y = 0; y < plansza.length; y++) {
+                for (int x = 0; x < plansza[y].length(); x++) {
+                    if (plansza[y].charAt(x) != '.') {
+                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+                    }
+                }
             }
         }
+//        Random rand = new Random();
+//        if (SEED != null) {
+//            rand.setSeed(Long.parseLong(SEED));
+//        }
+//
+//        for (int y = 1; y <= rowsPerThread; y++) {
+//            for (int x = 1; x <= colsPerThread; x++) {
+//                board.set(x, y, rand.nextDouble() <= 0.15);
+//            }
+//        }
 
         exchange();
         step = 0;
@@ -350,13 +351,13 @@ public class GameOfLife implements StartPoint {
         Board nextBoard = boards[(step + 1) % 2];
 
         for (int x = 1; x <= colsPerThread; ++x) {
-            for (int y = 1; y <= rowsPerThread; ++y) {
+        for (int y = 1; y <= rowsPerThread; ++y) {
                 int neightbours = countNeightbours(currentBoard, x, y);
                 // B3/S23
                 switch (neightbours) {
                     case 2:
                         // survive (if alive) - do not change state
-                        //nextBoard.set(x, y, currentBoard.get(x, y));
+                        nextBoard.set(x, y, currentBoard.get(x, y));
                         break;
                     case 3:
                         // born (or survive)
@@ -391,8 +392,7 @@ public class GameOfLife implements StartPoint {
             "localhost",
             "localhost",
             "localhost",
-            "localhost",
-        //            "localhost",
+            "localhost", //            "localhost",
         //            "localhost",
         //            "localhost",
         //            "localhost",
