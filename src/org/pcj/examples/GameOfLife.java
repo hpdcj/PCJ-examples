@@ -41,9 +41,9 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLife.Shared.class)
 public class GameOfLife implements StartPoint {
 
-    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "10000"));
-    private static final int COLS = Integer.parseInt(System.getProperty("cols", "800"));
-    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "600"));
+    private static final int STEPS = Integer.parseInt(System.getProperty("maxSteps", "10"));
+    private static final int COLS = Integer.parseInt(System.getProperty("cols", "16"));
+    private static final int ROWS = Integer.parseInt(System.getProperty("rows", "12"));
     private static final String SEED = System.getProperty("seed");
 
     private final int threadsPerRow;
@@ -101,8 +101,8 @@ public class GameOfLife implements StartPoint {
         public SharedClass() {
         }
 
-        boolean[] N;
-        boolean[] S;
+        BitSet N;
+        BitSet S;
         boolean[] E;
         boolean[] W;
         boolean NE;
@@ -116,8 +116,8 @@ public class GameOfLife implements StartPoint {
 
     {
         sendShared = new SharedClass();
-        sendShared.N = new boolean[colsPerThread];
-        sendShared.S = new boolean[colsPerThread];
+        sendShared.N = new BitSet(colsPerThread);
+        sendShared.S = new BitSet(colsPerThread);
         sendShared.E = new boolean[rowsPerThread];
         sendShared.W = new boolean[rowsPerThread];
     }
@@ -168,9 +168,9 @@ public class GameOfLife implements StartPoint {
                         System.out.printf("%.0f cells/s\n", rate);
                     }
                 }
-//                System.out.println("-----");
+                System.out.println("-----");
             }
-//            printWholeBoard();
+            printWholeBoard();
         }
 
         if (PCJ.myId() == 0) {
@@ -188,30 +188,31 @@ public class GameOfLife implements StartPoint {
 
         Board board = boards[0];
 
-//        if (PCJ.myId() == 0) {
-//            String[] plansza = {
-//                ".X.",
-//                "..X",
-//                "XXX"
-//            };
-//            for (int y = 0; y < plansza.length; y++) {
-//                for (int x = 0; x < plansza[y].length(); x++) {
-//                    if (plansza[y].charAt(x) != '.') {
-//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-//                    }
-//                }
-//            }
-//        }
-        Random rand = new Random();
-        if (SEED != null) {
-            rand.setSeed(Long.parseLong(SEED));
-        }
-
-        for (int y = 1; y <= rowsPerThread; y++) {
-            for (int x = 1; x <= colsPerThread; x++) {
-                board.set(x, y, rand.nextDouble() <= 0.15);
+        if (PCJ.myId() == 0) {
+            String[] plansza = {
+                ".X..",
+                "..X.",
+                "XXX.",
+                "...."
+            };
+            for (int y = 0; y < plansza.length; y++) {
+                for (int x = 0; x < plansza[y].length(); x++) {
+                    if (plansza[y].charAt(x) != '.') {
+                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+                    }
+                }
             }
         }
+//        Random rand = new Random();
+//        if (SEED != null) {
+//            rand.setSeed(Long.parseLong(SEED));
+//        }
+//
+//        for (int y = 1; y <= rowsPerThread; y++) {
+//            for (int x = 1; x <= colsPerThread; x++) {
+//                board.set(x, y, rand.nextDouble() <= 0.15);
+//            }
+//        }
 
         exchange();
         step = 0;
@@ -237,15 +238,11 @@ public class GameOfLife implements StartPoint {
         }
 
         if (!isFirstRow) {
-            for (int col = 1; col <= colsPerThread; ++col) {
-                sendShared.N[col - 1] = board.get(col, 1);
-            }
+            sendShared.N = board.getRow(1);
             PCJ.asyncPut(sendShared.N, PCJ.myId() - threadsPerRow, Shared.S);
         }
         if (!isLastRow) {
-            for (int col = 1; col <= colsPerThread; ++col) {
-                sendShared.S[col - 1] = board.get(col, rowsPerThread);
-            }
+            sendShared.S = board.getRow(rowsPerThread);
             PCJ.asyncPut(sendShared.S, PCJ.myId() + threadsPerRow, Shared.N);
         }
 
@@ -281,15 +278,12 @@ public class GameOfLife implements StartPoint {
         }
         if (!isLastRow) {
             PCJ.waitFor(Shared.S);
-            for (int col = 1; col <= colsPerThread; ++col) {
-                board.set(col, rowsPerThread + 1, recvShared.S[col - 1]);
-            }
+            board.setRow(rowsPerThread + 1, recvShared.S);
+
         }
         if (!isFirstRow) {
             PCJ.waitFor(Shared.N);
-            for (int col = 1; col <= colsPerThread; ++col) {
-                board.set(col, 0, recvShared.N[col - 1]);
-            }
+            board.setRow(0, recvShared.N);
         }
 
         if (!isLastColumn && !isLastRow) {
@@ -433,6 +427,14 @@ public class GameOfLife implements StartPoint {
 
         public void set(int x, int y, boolean v) {
             rows[y].set(x, v);
+        }
+
+        public BitSet getRow(int rowNo) {
+            return rows[rowNo];
+        }
+
+        public void setRow(int rowNo, BitSet row) {
+            rows[rowNo] = row;
         }
     }
 }
