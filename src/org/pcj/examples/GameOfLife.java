@@ -168,9 +168,9 @@ public class GameOfLife implements StartPoint {
                         System.out.printf("%.0f cells/s\n", rate);
                     }
                 }
-                System.out.println("-----");
+//                System.out.println("-----");
             }
-            printWholeBoard();
+//            printWholeBoard();
         }
 
         if (PCJ.myId() == 0) {
@@ -188,31 +188,31 @@ public class GameOfLife implements StartPoint {
 
         Board board = boards[0];
 
-        if (PCJ.myId() == 0) {
-            String[] plansza = {
-                ".X..",
-                "..X.",
-                "XXX.",
-                "...."
-            };
-            for (int y = 0; y < plansza.length; y++) {
-                for (int x = 0; x < plansza[y].length(); x++) {
-                    if (plansza[y].charAt(x) != '.') {
-                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
-                    }
-                }
-            }
-        }
-//        Random rand = new Random();
-//        if (SEED != null) {
-//            rand.setSeed(Long.parseLong(SEED));
-//        }
-//
-//        for (int y = 1; y <= rowsPerThread; y++) {
-//            for (int x = 1; x <= colsPerThread; x++) {
-//                board.set(x, y, rand.nextDouble() <= 0.15);
+//        if (PCJ.myId() == 0) {
+//            String[] plansza = {
+//                ".X..",
+//                "..X.",
+//                "XXX.",
+//                "...."
+//            };
+//            for (int y = 0; y < plansza.length; y++) {
+//                for (int x = 0; x < plansza[y].length(); x++) {
+//                    if (plansza[y].charAt(x) != '.') {
+//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+//                    }
+//                }
 //            }
 //        }
+        Random rand = new Random();
+        if (SEED != null) {
+            rand.setSeed(Long.parseLong(SEED));
+        }
+
+        for (int y = 1; y <= rowsPerThread; y++) {
+            for (int x = 1; x <= colsPerThread; x++) {
+                board.set(x, y, rand.nextDouble() <= 0.15);
+            }
+        }
 
         exchange();
         step = 0;
@@ -390,20 +390,20 @@ public class GameOfLife implements StartPoint {
     }
 
     public static void main(String[] args) throws Throwable {
-//        PCJ.start(GameOfLife.class, new NodesDescription(
-//                args.length > 0 ? args[0] : "nodes.txt"
-//        ));
-        PCJ.deploy(GameOfLife.class,
-                new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost",
-            "localhost", //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        //            "localhost",
-        }));
+        PCJ.start(GameOfLife.class, new NodesDescription(
+                args.length > 0 ? args[0] : "nodes.txt"
+        ));
+//        PCJ.deploy(GameOfLife.class,
+//                new NodesDescription(new String[]{
+//            "localhost",
+//            "localhost",
+//            "localhost",
+//            "localhost", //            "localhost",
+//        //            "localhost",
+//        //            "localhost",
+//        //            "localhost",
+//        //            "localhost",
+//        }));
     }
 
     private static class Board {
