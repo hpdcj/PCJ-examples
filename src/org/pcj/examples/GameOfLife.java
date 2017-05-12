@@ -382,13 +382,16 @@ public class GameOfLife implements StartPoint {
     }
 
     public static void main(String[] args) throws Throwable {
-//        PCJ.start(GameOfLife.class, new NodesDescription("nodes.txt"));
+//        PCJ.start(GameOfLife.class, new NodesDescription(
+//                args.length > 0 ? args[0] : "nodes.txt"
+//        ));
         PCJ.deploy(GameOfLife.class,
                 new NodesDescription(new String[]{
             "localhost",
             "localhost",
             "localhost",
-            "localhost", //            "localhost",
+            "localhost",
+        //            "localhost",
         //            "localhost",
         //            "localhost",
         //            "localhost",

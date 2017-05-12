@@ -371,7 +371,7 @@ public class GameOfLifeGui implements StartPoint {
             double rate = (double) nowCells / (deltaTime / 1e9);
             lastTime = nowTime;
 
-            System.out.printf("Processed %d cells in %.3f seconds. AVG %.0f cells/s\n", nowCells, deltaTime / 1e9, rate);
+            System.out.printf("%d threads on %d nodes processed %d cells in %.3f seconds (%.0f cells/s)\n", PCJ.threadCount(), PCJ.getNodeCount(), nowCells, deltaTime / 1e9, rate);
         }
     }
 
