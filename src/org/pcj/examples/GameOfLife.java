@@ -25,6 +25,8 @@
  */
 package org.pcj.examples;
 
+import java.util.BitSet;
+import java.util.Random;
 import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
@@ -38,45 +40,90 @@ import org.pcj.Storage;
 @RegisterStorage(GameOfLife.Shared.class)
 public class GameOfLife implements StartPoint {
 
-    @Storage(GameOfLife.class)
-    enum Shared {
-        boards
+    private static final int STEPS = 10;
+    private static final int COLS = 16;
+    private static final int ROWS = 12;
+
+    private final int threadsPerRow;
+    private final int threadsPerCol;
+
+    {
+        int midPoint;
+        for (midPoint = (int) Math.sqrt(PCJ.threadCount()); midPoint > 1; midPoint--) {
+            if (PCJ.threadCount() % midPoint == 0) {
+                break;
+            }
+        }
+        threadsPerRow = midPoint;
+        threadsPerCol = PCJ.threadCount() / midPoint;
     }
-    private final int threadsPerRow = (int) Math.sqrt(PCJ.threadCount());
-    private final int N = 3600 / threadsPerRow;
-    private static final int STEPS = 1000;
-    private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
-    /*
-     *  0 |  1 |  2 |  3
-     *  4 |  5 |  6 |  7
-     *  8 |  9 | 10 | 11
-     * 12 | 13 | 14 | 15
-     */
-    private final boolean isFirstColumn = PCJ.myId() % threadsPerRow == 0;
-    private final boolean isLastColumn = PCJ.myId() % threadsPerRow == threadsPerRow - 1;
+
+    private final int rowsPerThread = ROWS / threadsPerRow;
+    private final int colsPerThread = COLS / threadsPerCol;
+    private final boolean isFirstColumn = PCJ.myId() % threadsPerCol == 0;
+    private final boolean isLastColumn = PCJ.myId() % threadsPerCol == threadsPerCol - 1;
     private final boolean isFirstRow = PCJ.myId() < threadsPerRow;
     private final boolean isLastRow = PCJ.myId() >= PCJ.threadCount() - threadsPerRow;
-    private int step = 0;
+    private final Board[] boards = new Board[2];
+
+    {
+        for (int i = 0; i < boards.length; ++i) {
+            boards[i] = new Board(rowsPerThread, colsPerThread);
+        }
+    }
+
+    @Storage(GameOfLife.SharedClass.class)
+    enum Shared {
+        N, S, E, W, NE, NW, SE, SW
+    }
+
+    private static class SharedClass {
+
+        public SharedClass() {
+        }
+
+        BitSet N;
+        BitSet S;
+        BitSet E;
+        BitSet W;
+        boolean NE;
+        boolean NW;
+        boolean SE;
+        boolean SW;
+    }
+
+    private final SharedClass recvShared = (SharedClass) PCJ.getStorageObject(Shared.class);
+    private final SharedClass sendShared;
+
+    {
+        sendShared = new SharedClass();
+        sendShared.N = new BitSet(colsPerThread);
+        sendShared.S = new BitSet(colsPerThread);
+        sendShared.E = new BitSet(rowsPerThread);
+        sendShared.W = new BitSet(rowsPerThread);
+    }
+
+    private int stepNumber;
 
     @Override
     public void main() throws Throwable {
         init();
 
-//        print();
+//        printBoards();
+//        printWholeBoard();
         long start = System.nanoTime();
         PCJ.barrier();
 
-        while (step <= STEPS) {
+        for (stepNumber = 0; stepNumber <= STEPS; ++stepNumber) {
             step();
             exchange();
 
-//            if (PCJ.myId() == 0) {
-//                System.out.println("-----------");
-//            }
-            PCJ.barrier();
+            if (PCJ.myId() == 0) {
+                System.out.println("----------- " + stepNumber + " ---------");
+            }
+//            PCJ.barrier();
 
-            ++step;
-//            print();
+            printWholeBoard();
         }
         if (PCJ.myId() == 0) {
             System.out.printf("time: %.3fs%n", (System.nanoTime() - start) / 1e9);
@@ -84,163 +131,244 @@ public class GameOfLife implements StartPoint {
 //        if (PCJ.myId() == 0) {
 //            System.out.println("-----------");
 //        }
-//        print();
+//        printBoards();
     }
 
     private void init() {
-        /*
-         * .....
-         * ..X..
-         * ...X.
-         * .XXX.
-         * .....
-         */
-        step = -1;
-        boolean[][] board = boards[0];
-        if (PCJ.myId() == 0) {
-            board[2][3] = true;
-            board[3][4] = true;
-            board[4][2] = true;
-            board[4][3] = true;
-            board[4][4] = true;
-        }
-        exchange();
+        stepNumber = -1;
 
-        step = 0;
+        Board board = boards[0];
+//        if (PCJ.myId() == 0) {
+//            String[] plansza = {
+//                ".X.",
+//                "..X",
+//                "XXX"
+//            };
+//            for (int y = 0; y < plansza.length; y++) {
+//                for (int x = 0; x < plansza[y].length(); x++) {
+//                    if (plansza[y].charAt(x) != '.') {
+//                        board.set(1 + colsPerThread - plansza[y].length() + x, 1 + rowsPerThread - plansza.length + y, true);
+//                    }
+//                }
+//            }
+//        }
+
+        Random rand = new Random();
+        String seed = System.getProperty("seed");
+        if (seed != null) {
+            rand.setSeed(Long.parseLong(seed));
+        }
+
+        for (int y = 1; y <= rowsPerThread; y++) {
+            for (int x = 1; x <= colsPerThread; x++) {
+                board.set(x, y, rand.nextDouble() <= 0.15);
+            }
+        }
+
+        exchange();
+        stepNumber = 0;
     }
 
     private void exchange() {
-        boolean[][] board = boards[(step + 1) % 2];
-        int nextStep = (step + 1) % 2;
+        int nextStep = (stepNumber + 1) % 2;
+        Board board = boards[nextStep];
 
+        /* sending */
         if (!isFirstColumn) {
-            for (int row = 1; row <= N; ++row) {
-                PCJ.asyncPut(board[row][1], PCJ.myId() - 1, Shared.boards, nextStep, row, N + 1);
+            for (int row = 1; row <= rowsPerThread; ++row) {
+                sendShared.W.set(row - 1, board.get(1, row));
             }
-        }
-        if (!isLastColumn) {
-            for (int row = 1; row <= N; ++row) {
-                PCJ.asyncPut(board[row][N], PCJ.myId() + 1, Shared.boards, nextStep, row, 0);
-            }
-        }
-
-        if (!isFirstRow) {
-            for (int col = 1; col <= N; ++col) {
-                PCJ.asyncPut(board[1][col], PCJ.myId() - threadsPerRow, Shared.boards, nextStep, N + 1, col);
-            }
-        }
-        if (!isLastRow) {
-            for (int col = 1; col <= N; ++col) {
-                PCJ.asyncPut(board[N][col], PCJ.myId() + threadsPerRow, Shared.boards, nextStep, 0, col);
-            }
-        }
-
-        if (!isFirstColumn && !isFirstRow) {
-            PCJ.asyncPut(board[1][1], PCJ.myId() - threadsPerRow - 1, Shared.boards, nextStep, N + 1, N + 1);
-        }
-        if (!isFirstColumn && !isLastRow) {
-            PCJ.asyncPut(board[N][1], PCJ.myId() + threadsPerRow - 1, Shared.boards, nextStep, 0, N + 1);
-        }
-        if (!isLastColumn && !isFirstRow) {
-            PCJ.asyncPut(board[1][N], PCJ.myId() - threadsPerRow + 1, Shared.boards, nextStep, N + 1, 0);
-        }
-        if (!isLastColumn && !isLastRow) {
-            PCJ.asyncPut(board[N][N], PCJ.myId() + threadsPerRow + 1, Shared.boards, nextStep, 0, 0);
+            PCJ.asyncPut(sendShared.W, PCJ.myId() - 1, Shared.E);
         }
 
         if (!isLastColumn) {
-            PCJ.waitFor(Shared.boards, N);
+            for (int row = 1; row <= rowsPerThread; ++row) {
+                sendShared.E.set(row - 1, board.get(colsPerThread, row));
+            }
+            PCJ.asyncPut(sendShared.E, PCJ.myId() + 1, Shared.W);
         }
-        if (!isFirstColumn) {
-            PCJ.waitFor(Shared.boards, N);
+
+        if (!isFirstRow) {
+            for (int col = 1; col <= colsPerThread; ++col) {
+                sendShared.N.set(col - 1, board.get(col, 1));
+            }
+            PCJ.asyncPut(sendShared.N, PCJ.myId() - threadsPerRow, Shared.S);
         }
         if (!isLastRow) {
-            PCJ.waitFor(Shared.boards, N);
+            for (int col = 1; col <= colsPerThread; ++col) {
+                sendShared.S.set(col - 1, board.get(col, rowsPerThread));
+            }
+            PCJ.asyncPut(sendShared.S, PCJ.myId() + threadsPerRow, Shared.N);
+        }
+
+        if (!isFirstColumn && !isFirstRow) {
+            sendShared.NW = board.get(1, 1);
+            PCJ.asyncPut(sendShared.NW, PCJ.myId() - threadsPerRow - 1, Shared.SE);
+        }
+        if (!isFirstColumn && !isLastRow) {
+            sendShared.SW = board.get(1, rowsPerThread);
+            PCJ.asyncPut(sendShared.SW, PCJ.myId() + threadsPerRow - 1, Shared.NE);
+        }
+        if (!isLastColumn && !isFirstRow) {
+            sendShared.NE = board.get(colsPerThread, 1);
+            PCJ.asyncPut(sendShared.NE, PCJ.myId() - threadsPerRow + 1, Shared.SW);
+        }
+        if (!isLastColumn && !isLastRow) {
+            sendShared.SE = board.get(colsPerThread, rowsPerThread);
+            PCJ.asyncPut(sendShared.SE, PCJ.myId() + threadsPerRow + 1, Shared.NW);
+        }
+
+        /* receiving */
+        if (!isLastColumn) {
+            PCJ.waitFor(Shared.E);
+            for (int row = 1; row <= rowsPerThread; ++row) {
+                board.set(colsPerThread + 1, row, recvShared.E.get(row - 1));
+            }
+        }
+        if (!isFirstColumn) {
+            PCJ.waitFor(Shared.W);
+            for (int row = 1; row <= rowsPerThread; ++row) {
+                board.set(0, row, recvShared.W.get(row - 1));
+            }
+        }
+        if (!isLastRow) {
+            PCJ.waitFor(Shared.S);
+            for (int col = 1; col <= colsPerThread; ++col) {
+                board.set(col, rowsPerThread + 1, recvShared.S.get(col - 1));
+            }
         }
         if (!isFirstRow) {
-            PCJ.waitFor(Shared.boards, N);
+            PCJ.waitFor(Shared.N);
+            for (int col = 1; col <= colsPerThread; ++col) {
+                board.set(col, 0, recvShared.N.get(col - 1));
+            }
         }
 
         if (!isLastColumn && !isLastRow) {
-            PCJ.waitFor(Shared.boards);
+            PCJ.waitFor(Shared.SE);
+            board.set(colsPerThread + 1, rowsPerThread + 1, recvShared.SE);
         }
         if (!isLastColumn && !isFirstRow) {
-            PCJ.waitFor(Shared.boards);
+            PCJ.waitFor(Shared.NE);
+            board.set(colsPerThread + 1, 0, recvShared.NE);
         }
         if (!isFirstColumn && !isLastRow) {
-            PCJ.waitFor(Shared.boards);
+            PCJ.waitFor(Shared.SW);
+            board.set(0, rowsPerThread + 1, recvShared.SW);
         }
         if (!isFirstColumn && !isFirstRow) {
-            PCJ.waitFor(Shared.boards);
+            PCJ.waitFor(Shared.NW);
+            board.set(0, 0, recvShared.NW);
         }
     }
 
-    private void print() {
-        boolean[][] board = boards[step % 2];
-        int n = (int) Math.sqrt(PCJ.threadCount());
-        for (int row = 0; row < n * N; ++row) {
-            for (int col = 0; col < n; ++col) {
-                if (row / N == PCJ.myId() / n && col == PCJ.myId() % n) {
-                    for (int i = 1; i <= N; ++i) {
-                        System.out.print(board[row % N + 1][i] ? 'X' : '.');
+    private void printBoards() {
+        Board board = boards[stepNumber % 2];
+        for (int i = 0; i < PCJ.threadCount(); i++) {
+            if (PCJ.myId() == i) {
+                System.out.println("Id: " + PCJ.myId());
+                for (int row = 0; row <= rowsPerThread + 1; row++) {
+                    for (int col = 0; col <= colsPerThread + 1; col++) {
+                        System.out.print(board.get(col, row) ? 'X' : '.');
                     }
+                    System.out.println();
+                }
+                System.out.println();
+            }
+            PCJ.barrier();
+        }
+    }
 
-                    if (col + 1 == n) {
+    private void printWholeBoard() {
+        Board board = boards[stepNumber % 2];
+
+        for (int globalRow = 0; globalRow < rowsPerThread * threadsPerCol; globalRow++) {
+            for (int colThread = 0; colThread < threadsPerRow; colThread++) {
+                if (PCJ.myId() / threadsPerCol == globalRow / rowsPerThread && colThread == PCJ.myId() % threadsPerRow) {
+                    for (int col = 1; col <= colsPerThread; col++) {
+                        System.out.print(board.get(col, globalRow % rowsPerThread + 1) ? 'X' : '.');
+                    }
+                    if (isLastColumn) {
                         System.out.println();
                     }
                 }
-
                 PCJ.barrier();
             }
         }
+
     }
 
     private void step() {
-        boolean[][] currentBoard = boards[step % 2];
-        boolean[][] nextBoard = boards[(step + 1) % 2];
-        for (int x = 1; x <= N; ++x) {
-            for (int y = 1; y <= N; ++y) {
+        Board currentBoard = boards[stepNumber % 2];
+        Board nextBoard = boards[(stepNumber + 1) % 2];
+
+        for (int x = 1; x <= colsPerThread; ++x) {
+            for (int y = 1; y <= rowsPerThread; ++y) {
                 int neightbours = countNeightbours(currentBoard, x, y);
                 switch (neightbours) {
                     case 2:
                         // survive (if alive)
-                        nextBoard[x][y] = currentBoard[x][y];
+                        nextBoard.set(x, y, currentBoard.get(x, y));
                         break;
                     case 3:
                         // born (or survive)
-                        nextBoard[x][y] = true;
+                        nextBoard.set(x, y, true);
                         break;
                     default:
                         // under- or overpopulated - die
-                        nextBoard[x][y] = false;
+                        nextBoard.set(x, y, false);
                         break;
                 }
             }
         }
     }
 
-    private int countNeightbours(boolean[][] board, int x, int y) {
-        return (board[x - 1][y - 1] ? 1 : 0)
-                + (board[x - 1][y] ? 1 : 0)
-                + (board[x - 1][y + 1] ? 1 : 0)
-                + (board[x][y - 1] ? 1 : 0)
-                + (board[x][y + 1] ? 1 : 0)
-                + (board[x + 1][y - 1] ? 1 : 0)
-                + (board[x + 1][y] ? 1 : 0)
-                + (board[x + 1][y + 1] ? 1 : 0);
+    private int countNeightbours(Board board, int x, int y) {
+        return (board.get(x - 1, y - 1) ? 1 : 0)
+                + (board.get(x - 1, y) ? 1 : 0)
+                + (board.get(x - 1, y + 1) ? 1 : 0)
+                + (board.get(x, y - 1) ? 1 : 0)
+                + (board.get(x, y + 1) ? 1 : 0)
+                + (board.get(x + 1, y - 1) ? 1 : 0)
+                + (board.get(x + 1, y) ? 1 : 0)
+                + (board.get(x + 1, y + 1) ? 1 : 0);
     }
 
     public static void main(String[] args) {
         PCJ.deploy(GameOfLife.class,
                 new NodesDescription(new String[]{
             "localhost",
-            "localhost",
-            "localhost",
-            "localhost", //            "localhost",
+            "localhost:8080",
+            "localhost:8080",
+            "localhost:8080", //            "localhost",
         //            "localhost",
         //            "localhost",
         //            "localhost",
         //            "localhost",
         }));
+    }
+
+    private static class Board {
+
+        private final BitSet[] rows;
+
+        public Board(int rowCount, int colCount) {
+            rows = new BitSet[rowCount + 2];
+            for (int i = 0; i < rows.length; i++) {
+                rows[i] = new BitSet(colCount + 2);
+            }
+        }
+
+        public boolean get(int x, int y) {
+            return rows[y].get(x);
+        }
+
+        public void flip(int x, int y) {
+            rows[y].flip(x);
+        }
+
+        public void set(int x, int y, boolean v) {
+            rows[y].set(x, v);
+        }
     }
 }
