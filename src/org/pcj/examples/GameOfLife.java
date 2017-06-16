@@ -45,6 +45,7 @@ public class GameOfLife implements StartPoint {
     private static final int COLS = Integer.parseInt(System.getProperty("cols", "16"));
     private static final int ROWS = Integer.parseInt(System.getProperty("rows", "12"));
     private static final String SEED = System.getProperty("seed");
+    private static final long DELTA_TIME = Long.parseLong(System.getProperty("deltaTime", "1000000000"));
 
     private final int threadsPerRow;
     private final int threadsPerCol;
@@ -133,6 +134,7 @@ public class GameOfLife implements StartPoint {
             System.out.printf("ThreadsPerCol = %d\n", threadsPerCol);
             System.out.printf("MaxSteps = %d\n", STEPS);
             System.out.printf("Seed = %s\n", SEED);
+            System.out.printf("DeltaTime = %,d\n", DELTA_TIME);
         }
 
         init();
@@ -158,7 +160,7 @@ public class GameOfLife implements StartPoint {
                 long nowTime = System.nanoTime();
                 long deltaTime = nowTime - lastTime;
 
-                if (deltaTime > 1_000_000_000) {
+                if (deltaTime > DELTA_TIME) {
                     long deltaCells = nowCells - lastCells;
                     double rate = (double) deltaCells / (deltaTime / 1e9);
                     if (deltaCells > 0) {
@@ -203,6 +205,17 @@ public class GameOfLife implements StartPoint {
 //                }
 //            }
 //        }
+        Random rand = new Random();
+        if (SEED != null) {
+            rand.setSeed(Long.parseLong(SEED));
+        }
+
+        for (int y = 1; y <= rowsPerThread; y++) {
+            for (int x = 1; x <= colsPerThread; x++) {
+                board.set(x, y, rand.nextDouble() <= 0.15);
+            }
+        }
+
         Random rand = new Random();
         if (SEED != null) {
             rand.setSeed(Long.parseLong(SEED));
