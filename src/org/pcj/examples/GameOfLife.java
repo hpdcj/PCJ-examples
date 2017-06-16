@@ -216,17 +216,6 @@ public class GameOfLife implements StartPoint {
             }
         }
 
-        Random rand = new Random();
-        if (SEED != null) {
-            rand.setSeed(Long.parseLong(SEED));
-        }
-
-        for (int y = 1; y <= rowsPerThread; y++) {
-            for (int x = 1; x <= colsPerThread; x++) {
-                board.set(x, y, rand.nextDouble() <= 0.15);
-            }
-        }
-
         exchange();
         step = 0;
     }
