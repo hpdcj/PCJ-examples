@@ -2,47 +2,28 @@ package org.pcj.examples;
 
 import org.pcj.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 // https://stackoverflow.com/questions/26206544/parallel-radix-sort-how-would-this-implementation-actually-work-are-there-some
 @RegisterStorage(PcjRadixSort.Shared.class)
 public class PcjRadixSort implements StartPoint {
 
-//    private static int[] serialRadixSort(int[] tab) {
-//        int bits = (int) Math.ceil(Math.log(Arrays.stream(tab).max().getAsInt()) / Math.log(2));
-//        for (int bit = 0; bit < bits; ++bit) {
-//            int shift = (1 << bit);
-//
-//            int zeros = 0;
-//            for (int t : tab) {
-//                if ((t & shift) == 0) ++zeros;
-//            }
-//
-//            int[] offsets = new int[2];
-//            int[] newTab = new int[tab.length];
-//            for (int i = 0; i < tab.length; ++i) {
-//                int value = ((tab[i] & shift) == 0) ? 0 : 1;
-//
-//                newTab[(value == 0 ? 0 : zeros) + offsets[value]++] = tab[i];
-//            }
-//
-//            tab = newTab;
-//        }
-//        return tab;
-//    }
+    public static void main(String[] args) throws IOException {
+        String[] nodes;
+        if (args.length == 0) {
+            nodes = IntStream.range(0, 4).mapToObj(x -> "localhost").toArray(String[]::new);
+        } else {
+            nodes = Files.readAllLines(Paths.get(args[0])).stream().toArray(String[]::new);
+        }
 
-    public static void main(String[] args) {
-//        Random random = new Random(0);
-//        int[] randomTab = random.ints(16, 0, 32).toArray();
-//        int[] sortedTab = serialRadixSort(randomTab);
-//
-//        System.out.println(Arrays.toString(randomTab));
-//        System.out.println(Arrays.toString(sortedTab));
-        PCJ.deploy(PcjRadixSort.class, new NodesDescription(new String[]{
-                "localhost", "localhost", "localhost", "localhost"
-        }));
+        PCJ.deploy(PcjRadixSort.class, new NodesDescription(nodes));
+
     }
 
     @Storage(PcjRadixSort.class)
@@ -52,9 +33,10 @@ public class PcjRadixSort implements StartPoint {
 
     private int[] zeros;
     private int[] ones;
-    private int[] tab;
     private int[] newTab;
     private AtomicInteger bitsAtomicInteger = new AtomicInteger(Integer.MIN_VALUE);
+    
+    private int[] tab;
 
     @Override
     public void main() throws Throwable {
@@ -68,6 +50,20 @@ public class PcjRadixSort implements StartPoint {
         parallelRadixSort(bits);
 
         printTab();
+    }
+
+    private void generateTab(int size, int minValue, int maxValue) {
+        tab = new Random().ints(size, minValue, maxValue).toArray();
+    }
+
+    private void printTab() {
+        for (int i = 0; i < PCJ.threadCount(); i++) {
+            if (PCJ.myId() == i) {
+                System.out.print(Arrays.toString(tab));
+            }
+            PCJ.barrier();
+        }
+        if (PCJ.myId() == 0) System.out.println();
     }
 
     private int reduceTabBits() {
@@ -90,20 +86,6 @@ public class PcjRadixSort implements StartPoint {
         PCJ.waitFor(Shared.bitsAtomicInteger);
 
         return bitsAtomicInteger.get();
-    }
-
-    private void printTab() {
-        for (int i = 0; i < PCJ.threadCount(); i++) {
-            if (PCJ.myId() == i) {
-                System.out.print(Arrays.toString(tab));
-            }
-            PCJ.barrier();
-        }
-        if (PCJ.myId() == 0) System.out.println();
-    }
-
-    private void generateTab(int size, int minValue, int maxValue) {
-        tab = new Random(PCJ.myId()).ints(size, minValue, maxValue).toArray();
     }
 
 
