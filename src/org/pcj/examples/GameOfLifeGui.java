@@ -351,7 +351,7 @@ public class GameOfLifeGui implements StartPoint {
 
                             System.out.printf("%.0f cells/s\n", rate);
                             if (!disableGui) {
-                                SwingUtilities.invokeAndWait(() -> performanceLabel.setText(String.format("%,.0f cells/s", rate)));
+                                SwingUtilities.invokeLater(() -> performanceLabel.setText(String.format("%,.0f cells/s", rate)));
                             }
                         }
                     }
