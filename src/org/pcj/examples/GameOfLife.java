@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2017, Marek Nowicki
  * All rights reserved.
  *
@@ -25,9 +25,9 @@
  */
 package org.pcj.examples;
 
+import java.io.File;
 import java.util.BitSet;
 import java.util.Random;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
@@ -35,7 +35,6 @@ import org.pcj.StartPoint;
 import org.pcj.Storage;
 
 /**
- *
  * @author Marek Nowicki (faramir@mat.umk.pl)
  */
 @RegisterStorage(GameOfLife.Shared.class)
@@ -349,16 +348,16 @@ public class GameOfLife implements StartPoint {
         int[] old = new int[3];
         for (int y = 1; y <= rowsPerThread; ++y) {
             old[2] = (currentBoard.get(0, y - 1) ? 1 : 0)
-                    + (currentBoard.get(0, y) ? 1 : 0)
-                    + (currentBoard.get(0, y + 1) ? 1 : 0);
+                             + (currentBoard.get(0, y) ? 1 : 0)
+                             + (currentBoard.get(0, y + 1) ? 1 : 0);
             old[1] = (currentBoard.get(1, y - 1) ? 1 : 0)
-                    + (currentBoard.get(1, y) ? 1 : 0)
-                    + (currentBoard.get(1, y + 1) ? 1 : 0);
+                             + (currentBoard.get(1, y) ? 1 : 0)
+                             + (currentBoard.get(1, y + 1) ? 1 : 0);
             for (int x = 1; x <= colsPerThread; ++x) {
                 boolean v = currentBoard.get(x, y);
                 old[0] = (currentBoard.get(x + 1, y - 1) ? 1 : 0)
-                        + (currentBoard.get(x + 1, y) ? 1 : 0)
-                        + (currentBoard.get(x + 1, y + 1) ? 1 : 0);
+                                 + (currentBoard.get(x + 1, y) ? 1 : 0)
+                                 + (currentBoard.get(x + 1, y + 1) ? 1 : 0);
                 // B3/S23
                 switch (old[0] + old[1] + old[2] - (v ? 1 : 0)) {
                     case 2:
@@ -382,19 +381,19 @@ public class GameOfLife implements StartPoint {
 
     private int countNeightbours(Board board, int x, int y) {
         return (board.get(x - 1, y - 1) ? 1 : 0)
-                + (board.get(x - 1, y) ? 1 : 0)
-                + (board.get(x - 1, y + 1) ? 1 : 0)
-                + (board.get(x, y - 1) ? 1 : 0)
-                + (board.get(x, y + 1) ? 1 : 0)
-                + (board.get(x + 1, y - 1) ? 1 : 0)
-                + (board.get(x + 1, y) ? 1 : 0)
-                + (board.get(x + 1, y + 1) ? 1 : 0);
+                       + (board.get(x - 1, y) ? 1 : 0)
+                       + (board.get(x - 1, y + 1) ? 1 : 0)
+                       + (board.get(x, y - 1) ? 1 : 0)
+                       + (board.get(x, y + 1) ? 1 : 0)
+                       + (board.get(x + 1, y - 1) ? 1 : 0)
+                       + (board.get(x + 1, y) ? 1 : 0)
+                       + (board.get(x + 1, y + 1) ? 1 : 0);
     }
 
     public static void main(String[] args) throws Throwable {
-        PCJ.start(GameOfLife.class, new NodesDescription(
-                args.length > 0 ? args[0] : "nodes.txt"
-        ));
+        PCJ.executionBuilder(GameOfLife.class)
+                .addNodes(new File(args.length > 0 ? args[0] : "nodes.txt"))
+                .start();
 //        PCJ.deploy(GameOfLife.class,
 //                new NodesDescription(new String[]{
 //            "localhost",

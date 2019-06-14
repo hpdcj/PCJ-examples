@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2016, faramir
  * All rights reserved.
  *
@@ -25,16 +25,14 @@
  */
 package org.pcj.examples;
 
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
+import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
 import org.pcj.examples.PiCalcIntegral.Shared;
-import org.pcj.RegisterStorage;
 
 /**
- *
  * @author faramir
  */
 @RegisterStorage(Shared.class)
@@ -44,6 +42,7 @@ public class PiCalcIntegral implements StartPoint {
     public enum Shared {
         sum;
     }
+
     double sum;
 
     private double f(double x) {
@@ -89,7 +88,9 @@ public class PiCalcIntegral implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(PiCalcIntegral.class,
-                new NodesDescription(new String[]{"localhost", "localhost", "localhost"}));
+        String[] nodes = {"localhost", "localhost", "localhost"};
+        PCJ.executionBuilder(PiCalcIntegral.class)
+                .addNodes(nodes)
+                .deploy();
     }
 }

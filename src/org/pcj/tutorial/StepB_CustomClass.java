@@ -7,14 +7,12 @@ package org.pcj.tutorial;
 
 import java.io.Serializable;
 import java.util.Random;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
 
 /**
- *
  * @author faramir
  */
 @RegisterStorage(StepB_CustomClass.Shared.class)
@@ -31,6 +29,7 @@ public class StepB_CustomClass implements StartPoint {
         array,
         seconds
     }
+
     private int seconds;
     private final Result[] array = new Result[PCJ.threadCount()];
 
@@ -69,9 +68,10 @@ public class StepB_CustomClass implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(StepB_CustomClass.class, new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost:8090",}));
+        PCJ.executionBuilder(StepB_CustomClass.class)
+                .addNode("localhost")
+                .addNode("localhost")
+                .addNode("localhost:8090")
+                .start();
     }
 }

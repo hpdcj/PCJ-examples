@@ -5,7 +5,6 @@
  */
 package org.pcj.tutorial;
 
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.StartPoint;
 
@@ -26,9 +25,10 @@ public class Step4_Barrier implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(Step4_Barrier.class, new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost:8090",}));
+        PCJ.executionBuilder(Step4_Barrier.class)
+                .addNode("localhost")
+                .addNode("localhost")
+                .addNode("localhost:8090")
+                .start();
     }
 }

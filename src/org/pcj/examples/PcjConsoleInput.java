@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Scanner;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
@@ -28,7 +27,9 @@ public class PcjConsoleInput implements StartPoint {
             nodes = Files.readAllLines(Paths.get(args[0])).stream().toArray(String[]::new);
         }
         
-        PCJ.deploy(PcjConsoleInput.class, new NodesDescription(nodes));
+        PCJ.executionBuilder(PcjConsoleInput.class)
+                .addNodes(nodes)
+                .deploy();
     }
 
     @Override

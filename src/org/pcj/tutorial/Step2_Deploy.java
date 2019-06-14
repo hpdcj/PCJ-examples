@@ -5,7 +5,6 @@
  */
 package org.pcj.tutorial;
 
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.StartPoint;
 
@@ -21,9 +20,10 @@ public class Step2_Deploy implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(Step2_Deploy.class, new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost:8090",}));
+        PCJ.executionBuilder(Step2_Deploy.class)
+                .addNode("localhost")
+                .addNode("localhost")
+                .addNode("localhost:8090")
+                .start();
     }
 }

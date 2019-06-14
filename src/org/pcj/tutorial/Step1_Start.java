@@ -5,12 +5,10 @@
  */
 package org.pcj.tutorial;
 
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.StartPoint;
 
 /**
- *
  * @author faramir
  */
 public class Step1_Start implements StartPoint {
@@ -21,9 +19,10 @@ public class Step1_Start implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.start(Step1_Start.class, new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost",}));
+        PCJ.executionBuilder(Step1_Start.class)
+                .addNode("localhost")
+                .addNode("localhost")
+                .addNode("localhost")
+                .start();
     }
 }

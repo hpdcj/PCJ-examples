@@ -25,8 +25,8 @@
  */
 package org.pcj.examples;
 
+import java.io.File;
 import java.io.IOException;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.StartPoint;
 
@@ -44,7 +44,9 @@ public class HelloWorldExample implements StartPoint {
             nodesFile = args[0];
         }
 
-        PCJ.deploy(HelloWorldExample.class, new NodesDescription(nodesFile));
+        PCJ.executionBuilder(HelloWorldExample.class)
+                .addNodes(new File(nodesFile))
+                .deploy();
     }
 
     @Override

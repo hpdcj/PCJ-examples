@@ -4,12 +4,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.IntStream;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
+import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
-import org.pcj.RegisterStorage;
 
 @RegisterStorage(PcjReduction.Shared.class)
 public class PcjReduction implements StartPoint {
@@ -28,7 +27,9 @@ public class PcjReduction implements StartPoint {
         } else {
             nodes = Files.readAllLines(Paths.get(args[0])).stream().toArray(String[]::new);
         }
-        PCJ.deploy(PcjReduction.class, new NodesDescription(nodes));
+        PCJ.executionBuilder(PcjReduction.class)
+                .addNodes(nodes)
+                .deploy();
     }
 
     @Override

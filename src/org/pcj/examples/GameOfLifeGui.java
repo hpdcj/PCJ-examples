@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2017, Marek Nowicki
  * All rights reserved.
  *
@@ -25,12 +25,8 @@
  */
 package org.pcj.examples;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -40,20 +36,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ScrollPaneConstants;
-import javax.swing.SwingUtilities;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
 
 /**
- *
  * @author Marek Nowicki (faramir@mat.umk.pl)
  */
 @RegisterStorage(GameOfLifeGui.Shared.class)
@@ -76,6 +64,7 @@ public class GameOfLifeGui implements StartPoint {
     enum GuiBoard {
         guiBoard
     }
+
     private final boolean[][][] guiBoard = disableGui ? null : (PCJ.myId() == 0 ? new boolean[PCJ.threadCount()][N + 2][N + 2] : null);
     private JPanel panel;
     private JLabel performanceLabel;
@@ -94,6 +83,7 @@ public class GameOfLifeGui implements StartPoint {
         STOP,
         EXCHANGE
     }
+
     private final boolean[][][] boards = new boolean[2][N + 2][N + 2];
     /*
      *  0 |  1 |  2 |  3
@@ -127,8 +117,8 @@ public class GameOfLifeGui implements StartPoint {
 
                     {
                         List<Color> colorList = IntStream.range(0, PCJ.threadCount())
-                                .mapToObj(id -> Color.getHSBColor((float) id / PCJ.threadCount(), 0.3f, 1.0f))
-                                .collect(Collectors.toList());
+                                                        .mapToObj(id -> Color.getHSBColor((float) id / PCJ.threadCount(), 0.3f, 1.0f))
+                                                        .collect(Collectors.toList());
                         Collections.shuffle(colorList);
                         colors = colorList.toArray(new Color[0]);
                     }
@@ -492,13 +482,13 @@ public class GameOfLifeGui implements StartPoint {
 
     private int countNeightbours(boolean[][] board, int x, int y) {
         return (board[x - 1][y - 1] ? 1 : 0)
-                + (board[x - 1][y] ? 1 : 0)
-                + (board[x - 1][y + 1] ? 1 : 0)
-                + (board[x][y - 1] ? 1 : 0)
-                + (board[x][y + 1] ? 1 : 0)
-                + (board[x + 1][y - 1] ? 1 : 0)
-                + (board[x + 1][y] ? 1 : 0)
-                + (board[x + 1][y + 1] ? 1 : 0);
+                       + (board[x - 1][y] ? 1 : 0)
+                       + (board[x - 1][y + 1] ? 1 : 0)
+                       + (board[x][y - 1] ? 1 : 0)
+                       + (board[x][y + 1] ? 1 : 0)
+                       + (board[x + 1][y - 1] ? 1 : 0)
+                       + (board[x + 1][y] ? 1 : 0)
+                       + (board[x + 1][y + 1] ? 1 : 0);
     }
 
     private void paintBoards() {
@@ -517,19 +507,19 @@ public class GameOfLifeGui implements StartPoint {
     }
 
     public static void main(String[] args) throws Throwable {
-        PCJ.start(GameOfLifeGui.class,
-                //                new NodesDescription("nodes.txt"));
-                new NodesDescription(
-                        new String[]{
-                            "localhost",
-                            "localhost",
-                            "localhost",
-                            "localhost", //                            "localhost",
-                        //                            "localhost",
-                        //                            "localhost",
-                        //                            "localhost",
-                        //                            "localhost"
-                        }
-                ));
+        String[] nodes = {
+                "localhost",
+                "localhost",
+                "localhost",
+                "localhost",
+                //                            "localhost",
+                //                            "localhost",
+                //                            "localhost",
+                //                            "localhost",
+                //                            "localhost"
+        };
+        PCJ.executionBuilder(GameOfLifeGui.class)
+                .addNodes(nodes)
+                .start();
     }
 }

@@ -6,7 +6,6 @@
 package org.pcj.tutorial;
 
 import java.util.Random;
-import org.pcj.NodesDescription;
 import org.pcj.PCJ;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
@@ -48,9 +47,10 @@ public class Step8_SharedArray implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.deploy(Step8_SharedArray.class, new NodesDescription(new String[]{
-            "localhost",
-            "localhost",
-            "localhost:8090",}));
+        PCJ.executionBuilder(Step8_SharedArray.class)
+                .addNode("localhost")
+                .addNode("localhost")
+                .addNode("localhost:8090")
+                .start();
     }
 }

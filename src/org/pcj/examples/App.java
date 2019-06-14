@@ -20,6 +20,8 @@ public class App implements StartPoint {
     public static void main(String[] args) {
         String[] nodes = new String[]{"host0", "host0",
             "host1", "host1", "host2", "host2"};
-        PCJ.deploy(App.class, new NodesDescription(nodes));
+        PCJ.executionBuilder(App.class)
+                .addNodes(nodes)
+                .deploy();
     }
 }

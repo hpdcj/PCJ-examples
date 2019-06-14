@@ -1,7 +1,5 @@
 package org.pcj.examples;
 
-import org.pcj.*;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -9,6 +7,10 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
+import org.pcj.PCJ;
+import org.pcj.RegisterStorage;
+import org.pcj.StartPoint;
+import org.pcj.Storage;
 
 // https://stackoverflow.com/questions/26206544/parallel-radix-sort-how-would-this-implementation-actually-work-are-there-some
 @RegisterStorage(PcjRadixSort.Shared.class)
@@ -22,8 +24,9 @@ public class PcjRadixSort implements StartPoint {
             nodes = Files.readAllLines(Paths.get(args[0])).stream().toArray(String[]::new);
         }
 
-        PCJ.deploy(PcjRadixSort.class, new NodesDescription(nodes));
-
+        PCJ.executionBuilder(PcjRadixSort.class)
+                .addNodes(nodes)
+                .deploy();
     }
 
     @Storage(PcjRadixSort.class)
@@ -35,7 +38,7 @@ public class PcjRadixSort implements StartPoint {
     private int[] ones;
     private int[] newTab;
     private AtomicInteger bitsAtomicInteger = new AtomicInteger(Integer.MIN_VALUE);
-    
+
     private int[] tab;
 
     @Override
