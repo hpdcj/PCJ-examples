@@ -4,11 +4,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Set;
-import org.pcj.AsyncTask;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
@@ -152,7 +149,10 @@ public class RandomAccessAsyncAt implements StartPoint {
     private void performRandomAccess() {
         long timeBoundStart = System.currentTimeMillis();
         int executedInThread = 0;
-        Set<PcjFuture<Void>> futureSet = new HashSet<>();
+
+        int futuresIndex = 0;
+        PcjFuture[] futures = new PcjFuture[400];
+
         for (int update = 0; update < localUpdates; update++) {
             final long randomLocation = generateRandomUpdate();
 
@@ -162,20 +162,18 @@ public class RandomAccessAsyncAt implements StartPoint {
 
             final int finalLocalN = localN;
 
-            PcjFuture<Void> future = PCJ.asyncAt(whichPE(randomLocation), (AsyncTask.VoidTask) () -> {
+            PcjFuture<Void> future = PCJ.asyncAt(whichPE(randomLocation), () -> {
                 int localOffset = (int) (randomLocation & (finalLocalN - 1));
-                long val = PCJ.getLocal(Shared.table, localOffset);
-                val ^= randomLocation;
-                PCJ.putLocal(val, Shared.table, localOffset);
+                long[] table = PCJ.getLocal(Shared.table);
+                table[localOffset] ^= randomLocation;
             });
 
-            // future.get();
-
-            futureSet.add(future);
-
-            if (futureSet.size() >= 200) {
-                futureSet.forEach(PcjFuture::get);
-                futureSet.clear();
+            futures[futuresIndex++] = future;
+            if (futuresIndex == futures.length) {
+                for (PcjFuture f : futures) {
+                    f.get();
+                }
+                futuresIndex = 0;
             }
 
             executedInThread++;
