@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import org.pcj.AsyncTask;
 import org.pcj.PCJ;
 import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
@@ -162,11 +163,7 @@ public class RandomAccessAsyncAt implements StartPoint {
 
             final int finalLocalN = localN;
 
-            PcjFuture<Void> future = PCJ.asyncAt(whichPE(randomLocation), () -> {
-                int localOffset = (int) (randomLocation & (finalLocalN - 1));
-                long[] table = PCJ.getLocal(Shared.table);
-                table[localOffset] ^= randomLocation;
-            });
+            PcjFuture<Void> future = PCJ.asyncAt(whichPE(randomLocation), new UpdateTask(randomLocation, finalLocalN));
 
             futures[futuresIndex++] = future;
             if (futuresIndex == futures.length) {
@@ -299,6 +296,24 @@ public class RandomAccessAsyncAt implements StartPoint {
             rand = (rand << 1) ^ ((long) rand < 0L ? POLY : 0L);
             // System.out.println(rand);
             return rand;
+        }
+    }
+
+    private static class UpdateTask implements AsyncTask.VoidTask {
+
+        private final long randomLocation;
+        private final int finalLocalN;
+
+        UpdateTask(long randomLocation, int finalLocalN) {
+            this.randomLocation = randomLocation;
+            this.finalLocalN = finalLocalN;
+        }
+
+        @Override
+        public void run() {
+            int localOffset = (int) (randomLocation & (finalLocalN - 1));
+            long[] table = PCJ.getLocal(Shared.table);
+            table[localOffset] ^= randomLocation;
         }
     }
 }
