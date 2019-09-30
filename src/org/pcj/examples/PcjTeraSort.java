@@ -26,10 +26,10 @@ public class PcjTeraSort implements StartPoint {
 
     @Storage(PcjTeraSort.class)
     enum Vars {
-        waiter, pivots, buckets;
+        sequencer, pivots, buckets
     }
 
-    private boolean waiter;
+    private boolean sequencer;
     private List<Element> pivots = new ArrayList<>();
     private Element[][][] buckets;
 
@@ -49,7 +49,7 @@ public class PcjTeraSort implements StartPoint {
     @Override
     public void main() throws Throwable {
         if (PCJ.myId() == 0) {
-            PCJ.put(true, 0, Vars.waiter);
+            PCJ.put(true, 0, Vars.sequencer);
         }
 
         String inputFile = PCJ.getProperty("inputFile");
@@ -62,9 +62,6 @@ public class PcjTeraSort implements StartPoint {
 
         try (TeraFileInput input = new TeraFileInput(inputFile)) {
             long totalElements = input.length();
-            if (PCJ.myId() == 0) {
-                System.out.printf("Total elements to sort: %d%n", totalElements);
-            }
 
             long localElementsCount = totalElements / PCJ.threadCount();
             long reminderElements = totalElements - localElementsCount * PCJ.threadCount();
@@ -72,14 +69,14 @@ public class PcjTeraSort implements StartPoint {
                 ++localElementsCount;
             }
 
+            if (PCJ.myId() == 0) {
+                System.out.printf("Total elements to sort: %d%n", totalElements);
+                System.out.printf("Each thread reads about: %d%n", localElementsCount);
+            }
+
             // every thread read own portion of input file
             long startElement = PCJ.myId() * (totalElements / PCJ.threadCount()) + Math.min(PCJ.myId(), reminderElements);
             long endElement = startElement + localElementsCount;
-
-//            PCJ.waitFor(Vars.waiter);
-//            System.out.printf("[%d] elements: [%d,%d) %d %n", PCJ.myId(), startElement, endElement, localElementsCount);
-//            PCJ.put(true, (PCJ.myId() + 1) % PCJ.threadCount(), Vars.waiter);
-
 
             // generate pivots (a unique set of keys at random positions: k0<k1<k2<...<k(n-1))
             for (int i = 0; i < numberOfPivotsByThread; ++i) {
@@ -95,8 +92,6 @@ public class PcjTeraSort implements StartPoint {
                 }, Vars.pivots);
 
                 pivots = pivots.stream().distinct().sorted().collect(Collectors.toList()); // unique, sort
-
-//                pivots.stream().map(Element::getKey).forEach(System.out::println);
 
                 PCJ.broadcast(pivots, Vars.pivots);
             }
@@ -154,22 +149,21 @@ public class PcjTeraSort implements StartPoint {
         PCJ.waitFor(Vars.buckets, PCJ.threadCount() * buckets.length);
         Element[][] sortedBuckets = new Element[buckets.length][];
         for (int i = 0; i < buckets.length; i++) {
-//            sortedBuckets[i] = Arrays.stream(buckets[i]).flatMap(Arrays::stream).sorted().toArray(Element[]::new);
             sortedBuckets[i] = Arrays.stream(buckets[i]).flatMap(Arrays::stream).toArray(Element[]::new);
             Arrays.sort(sortedBuckets[i]);
         }
-//        System.out.println(PCJ.myId() + " " + Arrays.stream(sortedBuckets).mapToInt(a -> a.length).sum());
+        System.out.printf("Thread %d sorted %d elements%n", PCJ.myId(), Arrays.stream(sortedBuckets).mapToInt(a -> a.length).sum());
 
         // save into file
-        PCJ.waitFor(Vars.waiter);
-//        System.out.printf("[%d] %s %n", PCJ.myId(), Arrays.stream(sortedBuckets).flatMap(Arrays::stream).map(Element::getKey).map(Text::toString).collect(Collectors.joining()));
+        PCJ.waitFor(Vars.sequencer);
         try (TeraFileOutput output = new TeraFileOutput(outputFile)) {
             Arrays.stream(sortedBuckets).flatMap(Arrays::stream).forEach(output::writeElement);
         }
-        PCJ.put(true, (PCJ.myId() + 1) % PCJ.threadCount(), Vars.waiter);
+        PCJ.put(true, (PCJ.myId() + 1) % PCJ.threadCount(), Vars.sequencer);
 
+        // display execution time
         if (PCJ.myId() == 0) {
-            PCJ.waitFor(Vars.waiter);
+            PCJ.waitFor(Vars.sequencer);
             long stopTime = System.nanoTime();
             System.out.printf(Locale.ENGLISH, "Total execution time: %.7f%n", (stopTime - startTime) / 1e9);
         }
