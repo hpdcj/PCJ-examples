@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.pcj.PCJ;
+import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
@@ -100,7 +101,7 @@ public class PcjTeraSort implements StartPoint {
 
             int pivotsCount = ((pivots.size() + 1) + PCJ.threadCount() - (PCJ.myId() + 1)) / PCJ.threadCount();
             buckets = new Element[pivotsCount][PCJ.threadCount()][];
-            PCJ.barrier();
+            PcjFuture<Void> bucketsBarrier = PCJ.asyncBarrier();
 
             @SuppressWarnings("unchecked")
             List<Element>[] localBuckets = (List<Element>[]) new List[pivots.size() + 1];
@@ -125,6 +126,7 @@ public class PcjTeraSort implements StartPoint {
             int bigPackSize = (localBuckets.length + PCJ.threadCount() - 1) / PCJ.threadCount();
             int bigPackLimit = bigPackSize * bigPacks;
 
+            bucketsBarrier.get(); // be sure that buckets variable is set on each thread
             for (int i = 0; i < localBuckets.length; i++) {
                 int threadId;
                 int packNo;
@@ -138,7 +140,7 @@ public class PcjTeraSort implements StartPoint {
 
                 Element[] bucket = localBuckets[i].toArray(new Element[0]);
                 if (threadId != PCJ.myId()) {
-                    PCJ.asyncPut(bucket, threadId, Vars.buckets, packNo, PCJ.myId()).get();
+                    PCJ.asyncPut(bucket, threadId, Vars.buckets, packNo, PCJ.myId());
                 } else {
                     PCJ.putLocal(bucket, Vars.buckets, packNo, PCJ.myId());
                 }
