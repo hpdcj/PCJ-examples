@@ -234,7 +234,9 @@ public class PcjTeraSort implements StartPoint {
 
         public Element readElement() throws IOException {
             if (mappedByteBuffer == null || mappedByteBuffer.remaining() == 0) {
-                mappedByteBuffer = input.map(FileChannel.MapMode.READ_ONLY, input.position(), 1_000_000 * recordLength);
+                mappedByteBuffer = input.map(FileChannel.MapMode.READ_ONLY,
+                        input.position(),
+                        Math.min(input.size() - input.position(), 1_000_000 * recordLength));
             }
             mappedByteBuffer.get(tempKeyBytes);
             mappedByteBuffer.get(tempValueBytes);
