@@ -42,12 +42,14 @@ public class PcjTeraSort implements StartPoint {
             System.err.println("Parameters: <input-file> <output-file> <pivots-by-thread> <nodes-file>");
             return;
         }
+//try (DumpInfo dumpInfo = new DumpInfo()) {
         PCJ.executionBuilder(PcjTeraSort.class)
                 .addProperty("inputFile", args[0])
                 .addProperty("outputFile", args[1])
                 .addProperty("pivotsByThread", args[2])
                 .addNodes(new File(args[3]))
-                .deploy();
+                .start();
+//}
     }
 
     @Override
@@ -63,6 +65,8 @@ public class PcjTeraSort implements StartPoint {
         new File(outputFile).delete();
 
         long startTime = System.nanoTime();
+        long readingStart = 0;
+        long sendingStart = 0;
 
         try (TeraFileInput input = new TeraFileInput(inputFile)) {
             long totalElements = input.length();
@@ -88,6 +92,7 @@ public class PcjTeraSort implements StartPoint {
                 Element pivot = input.readElement();
                 pivots.add(pivot);
             }
+            System.out.println("TL:" + PCJ.myId() + "\tread_pivots\t" + (System.nanoTime() - startTime) / 1e9);
             PCJ.barrier();
             if (PCJ.myId() == 0) {
                 pivots = PCJ.reduce((left, right) -> {
@@ -102,7 +107,8 @@ public class PcjTeraSort implements StartPoint {
             }
 
             PCJ.waitFor(Vars.pivots);
-            long readingStart = System.nanoTime();
+            System.out.println("TL:" + PCJ.myId() + "\tget_pivots\t" + (System.nanoTime() - startTime) / 1e9);
+            readingStart = System.nanoTime();
 
             int pivotsCount = ((pivots.size() + 1) + PCJ.threadCount() - (PCJ.myId() + 1)) / PCJ.threadCount();
             buckets = new Element[pivotsCount][PCJ.threadCount()][];
@@ -135,8 +141,9 @@ public class PcjTeraSort implements StartPoint {
             int bigPackSize = (localBuckets.length + PCJ.threadCount() - 1) / PCJ.threadCount();
             int bigPackLimit = bigPackSize * bigPacks;
 
+            System.out.println("TL:" + PCJ.myId() + "\tread_data\t" + (System.nanoTime() - startTime) / 1e9);
             bucketsBarrier.get(); // be sure that buckets variable is set on each thread
-            long sendingStart = System.nanoTime();
+            sendingStart = System.nanoTime();
 
             System.out.printf(Locale.ENGLISH, "Thread %d started sending buckets data%n", PCJ.myId());
             for (int i = 0; i < localBuckets.length; i++) {
@@ -151,6 +158,10 @@ public class PcjTeraSort implements StartPoint {
                 }
 
                 Element[] bucket = localBuckets[i].toArray(new Element[0]);
+
+                //    System.err.printf(Locale.ENGLISH, "Thread %3d will be sending to %3d packNo %d - %5d elements (localBucket=%5d)%n",
+                //                            PCJ.myId(), threadId, packNo, bucket.length, i);
+
                 if (threadId != PCJ.myId()) {
                     PCJ.asyncPut(bucket, threadId, Vars.buckets, packNo, PCJ.myId());
                 } else {
@@ -160,10 +171,12 @@ public class PcjTeraSort implements StartPoint {
             System.out.printf(Locale.ENGLISH, "Thread %d finished sending data in %.7f seconds%n",
                     PCJ.myId(),
                     (System.nanoTime() - sendingStart) / 1e9);
+            System.out.println("TL:" + PCJ.myId() + "\tsent_data\t" + (System.nanoTime() - startTime) / 1e9);
         }
 
         // sort buckets
         PCJ.waitFor(Vars.buckets, PCJ.threadCount() * buckets.length);
+        System.out.println("TL:" + PCJ.myId() + "\twaitfor_data\t" + (System.nanoTime() - startTime) / 1e9);
         long sortingStart = System.nanoTime();
 
         System.out.printf(Locale.ENGLISH, "Thread %d started sorting buckets%n", PCJ.myId());
@@ -174,11 +187,13 @@ public class PcjTeraSort implements StartPoint {
         }
         System.out.printf(Locale.ENGLISH, "Thread %d finished sorting %d elements in %.7f seconds%n",
                 PCJ.myId(),
-                Arrays.stream(sortedBuckets).mapToInt(a -> a.length).sum(),
+                Arrays.stream(sortedBuckets).mapToLong(a -> a.length).sum(),
                 (System.nanoTime() - sortingStart) / 1e9);
+        System.out.println("TL:" + PCJ.myId() + "\tsorting_data\t" + (System.nanoTime() - startTime) / 1e9);
 
         // save into file
         PCJ.waitFor(Vars.sequencer);
+        System.out.println("TL:" + PCJ.myId() + "\twaitfor_saving\t" + (System.nanoTime() - startTime) / 1e9);
         long savingStart = System.nanoTime();
 
         System.out.printf(Locale.ENGLISH, "Thread %d started saving buckets to file%n", PCJ.myId());
@@ -190,11 +205,18 @@ public class PcjTeraSort implements StartPoint {
                 PCJ.myId(),
                 Arrays.stream(sortedBuckets).mapToInt(a -> a.length).sum(),
                 (System.nanoTime() - savingStart) / 1e9);
+        System.out.println("TL:" + PCJ.myId() + "\tsaving_data\t" + (System.nanoTime() - startTime) / 1e9);
 
         // display execution time
         if (PCJ.myId() == 0) {
             PCJ.waitFor(Vars.sequencer);
             long stopTime = System.nanoTime();
+            System.out.printf(Locale.ENGLISH, "Start to Pivots completed:  %17.9f%n", (readingStart - startTime) / 1e9);
+            System.out.printf(Locale.ENGLISH, "Start to Reading completed: %17.9f%n", (sendingStart - startTime) / 1e9);
+            System.out.printf(Locale.ENGLISH, "Start to Sending completed: %17.9f%n", (sortingStart - startTime) / 1e9);
+            System.out.printf(Locale.ENGLISH, "Start to Sorting completed: %17.9f%n", (savingStart - startTime) / 1e9);
+            System.out.printf(Locale.ENGLISH, "Start to Saving completed:  %17.9f%n", (stopTime - startTime) / 1e9);
+            System.out.printf(Locale.ENGLISH, "Total saving time: %.7f seconds%n", (stopTime - savingStart) / 1e9);
             System.out.printf(Locale.ENGLISH, "Total execution time: %.7f seconds%n", (stopTime - startTime) / 1e9);
         }
     }
