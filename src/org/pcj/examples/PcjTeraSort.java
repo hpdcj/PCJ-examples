@@ -108,11 +108,13 @@ public class PcjTeraSort implements StartPoint {
                 }, Vars.pivots);
 
                 pivots = pivots.stream().distinct().sorted().collect(Collectors.toList()); // unique, sort
-                int seekValue = Math.max(pivots.size() / PCJ.threadCount(), 1);
-                pivots = IntStream.range(1, PCJ.threadCount())
+                int pivotsSize = pivots.size();
+                int seekValue = Math.max(pivotsSize / PCJ.threadCount(), 1);
+                pivots = IntStream.range(1, Math.min(PCJ.threadCount(), pivotsSize))
                                  .map(i -> i * seekValue)
                                  .mapToObj(pivots::get)
                                  .collect(Collectors.toList());
+
 
                 System.out.printf(Locale.ENGLISH, "Number of pivots: %d%n", pivots.size());
                 PCJ.broadcast(pivots, Vars.pivots);
@@ -122,7 +124,7 @@ public class PcjTeraSort implements StartPoint {
             System.out.println("TL:" + PCJ.myId() + "\tget_pivots\t" + (System.nanoTime() - startTime) / 1e9);
             readingStart = System.nanoTime();
 
-            buckets = new Element[PCJ.threadCount()][];
+            buckets = new Element[PCJ.myId() < pivots.size() + 1 ? PCJ.threadCount() : 0][];
             PcjFuture<Void> bucketsBarrier = PCJ.asyncBarrier();
 
             @SuppressWarnings("unchecked")
@@ -170,7 +172,7 @@ public class PcjTeraSort implements StartPoint {
         }
 
         // sort buckets
-        PCJ.waitFor(Vars.buckets, PCJ.threadCount());
+        PCJ.waitFor(Vars.buckets, buckets.length);
         System.out.println("TL:" + PCJ.myId() + "\twaitfor_data\t" + (System.nanoTime() - startTime) / 1e9);
         long sortingStart = System.nanoTime();
 
