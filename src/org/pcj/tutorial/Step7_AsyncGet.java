@@ -16,10 +16,10 @@ import org.pcj.Storage;
  *
  * @author faramir
  */
-@RegisterStorage(Step7_AsyncGet.Shared.class)
+@RegisterStorage
 public class Step7_AsyncGet implements StartPoint {
 
-    @Storage(Step7_AsyncGet.class)
+    @Storage
     enum Shared {
         rand
     }
@@ -54,6 +54,6 @@ public class Step7_AsyncGet implements StartPoint {
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

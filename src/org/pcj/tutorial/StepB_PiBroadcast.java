@@ -15,10 +15,10 @@ import org.pcj.Storage;
  *
  * @author faramir
  */
-@RegisterStorage(StepA_PiBroadcast.Shared.class)
-public class StepA_PiBroadcast implements StartPoint {
+@RegisterStorage
+public class StepB_PiBroadcast implements StartPoint {
 
-    @Storage(StepA_PiBroadcast.class)
+    @Storage
     enum Shared {
         array,
         points
@@ -55,10 +55,10 @@ public class StepA_PiBroadcast implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.executionBuilder(StepA_PiBroadcast.class)
+        PCJ.executionBuilder(StepB_PiBroadcast.class)
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

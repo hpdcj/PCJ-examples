@@ -15,8 +15,8 @@ import org.pcj.Storage;
 /**
  * @author faramir
  */
-@RegisterStorage(StepB_CustomClass.Shared.class)
-public class StepB_CustomClass implements StartPoint {
+@RegisterStorage
+public class StepC_CustomClass implements StartPoint {
 
     private static class Result implements Serializable {
 
@@ -24,7 +24,7 @@ public class StepB_CustomClass implements StartPoint {
         long nohit;
     }
 
-    @Storage(StepB_CustomClass.class)
+    @Storage
     enum Shared {
         array,
         seconds
@@ -68,10 +68,10 @@ public class StepB_CustomClass implements StartPoint {
     }
 
     public static void main(String[] args) {
-        PCJ.executionBuilder(StepB_CustomClass.class)
+        PCJ.executionBuilder(StepC_CustomClass.class)
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

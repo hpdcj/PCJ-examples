@@ -24,6 +24,6 @@ public class Step3_MyId implements StartPoint {
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

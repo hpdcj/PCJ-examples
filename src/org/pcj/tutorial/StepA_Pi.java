@@ -15,10 +15,10 @@ import org.pcj.Storage;
  *
  * @author faramir
  */
-@RegisterStorage(Step8_SharedArray.Shared.class)
-public class Step8_SharedArray implements StartPoint {
+@RegisterStorage
+public class StepA_Pi implements StartPoint {
 
-    @Storage(Step8_SharedArray.class)
+    @Storage
     enum Shared {
         randArray
     }
@@ -26,15 +26,17 @@ public class Step8_SharedArray implements StartPoint {
 
     @Override
     public void main() throws Throwable {
-        int rand = new Random().nextInt(PCJ.threadCount());
-        for (int i = 0; i < PCJ.threadCount(); i++) {
-            if (PCJ.myId() == i) {
-                System.out.println("Hello from " + PCJ.myId()
-                        + " with value " + rand);
+        Random random = new Random();
+        int count = 0;
+        for (int i = 0; i < 1_000_000; ++i) {
+            double x = random.nextDouble();
+            double y = random.nextDouble();
+            if (x * x + y * y < 1) {
+                ++count;
             }
-            PCJ.barrier();
         }
-        PCJ.put(rand, 0, Shared.randArray, PCJ.myId());
+
+        PCJ.put(count, 0, Shared.randArray, PCJ.myId());
         if (PCJ.myId() == 0) {
             PCJ.waitFor(Shared.randArray, PCJ.threadCount());
 
@@ -43,14 +45,15 @@ public class Step8_SharedArray implements StartPoint {
                 sum += r;
             }
             System.out.println("sum = " + sum);
+            System.out.println("PI = " + (4. * sum / 1_000_000 / PCJ.threadCount()));
         }
     }
 
     public static void main(String[] args) {
-        PCJ.executionBuilder(Step8_SharedArray.class)
+        PCJ.executionBuilder(StepA_Pi.class)
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

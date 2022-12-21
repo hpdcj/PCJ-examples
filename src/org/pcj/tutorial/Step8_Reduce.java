@@ -7,6 +7,7 @@ package org.pcj.tutorial;
 
 import java.util.Random;
 import org.pcj.PCJ;
+import org.pcj.PcjFuture;
 import org.pcj.RegisterStorage;
 import org.pcj.StartPoint;
 import org.pcj.Storage;
@@ -16,7 +17,7 @@ import org.pcj.Storage;
  * @author faramir
  */
 @RegisterStorage
-public class Step6_Get implements StartPoint {
+public class Step8_Reduce implements StartPoint {
 
     @Storage
     enum Shared {
@@ -35,16 +36,14 @@ public class Step6_Get implements StartPoint {
             PCJ.barrier();
         }
         if (PCJ.myId() == 0) {
-            int sum = 0;
-            for (int i = 0; i < PCJ.threadCount(); i++) {
-                sum += PCJ.<Integer>get(i, Shared.rand);
-            }
+
+            int sum = PCJ.reduce(Integer::sum, Shared.rand);
             System.out.println("sum = " + sum);
         }
     }
 
     public static void main(String[] args) {
-        PCJ.executionBuilder(Step6_Get.class)
+        PCJ.executionBuilder(Step8_Reduce.class)
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")

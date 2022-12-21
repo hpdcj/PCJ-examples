@@ -40,6 +40,6 @@ public class Step5_SharedVariable implements StartPoint {
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }

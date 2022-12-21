@@ -29,6 +29,6 @@ public class Step4_Barrier implements StartPoint {
                 .addNode("localhost")
                 .addNode("localhost")
                 .addNode("localhost:8090")
-                .start();
+                .deploy();
     }
 }
